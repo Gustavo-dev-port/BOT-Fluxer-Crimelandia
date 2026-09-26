@@ -1,0 +1,12 @@
+services:
+  fluxer-bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: file:/data/fluxer.db
+    volumes:
+      - fluxer-data:/data
+
+volumes:
+  fluxer-data:

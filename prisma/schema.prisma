@@ -1,0 +1,220 @@
+// Fluxer BOT — esquema do banco (SQLite via Prisma)
+// Status e formatos são armazenados como String; os valores válidos estão
+// documentados em src/lib/types.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id            String   @id // ID do usuário no Discord
+  username      String
+  coins         Int      @default(0)
+  equippedTitle String?
+  eventCredits  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  stats        PlayerSeasonStats[]
+  participants MatchParticipant[]
+  teams        TeamMember[]
+  entries      TournamentEntry[]
+  transactions Transaction[]
+  titles       PlayerTitle[]
+  achievements PlayerAchievement[]
+  tempRoles    TempRole[]
+}
+
+model Season {
+  id         Int       @id @default(autoincrement())
+  number     Int       @unique
+  startedAt  DateTime  @default(now())
+  endsAt     DateTime
+  endedAt    DateTime?
+  active     Boolean   @default(true)
+  championId String?
+
+  stats   PlayerSeasonStats[]
+  matches Match[]
+}
+
+model PlayerSeasonStats {
+  id         Int    @id @default(autoincrement())
+  playerId   String
+  seasonId   Int
+  rating     Int    @default(1000)
+  points     Int    @default(0)
+  wins       Int    @default(0)
+  losses     Int    @default(0)
+  streak     Int    @default(0) // sequência atual de vitórias
+  bestStreak Int    @default(0)
+
+  player Player @relation(fields: [playerId], references: [id])
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@unique([playerId, seasonId])
+}
+
+model Game {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  captainId String
+  createdAt DateTime @default(now())
+
+  members TeamMember[]
+  entries TournamentEntry[]
+}
+
+model TeamMember {
+  id       Int    @id @default(autoincrement())
+  teamId   Int
+  playerId String
+
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([teamId, playerId])
+}
+
+model Match {
+  id           Int       @id @default(autoincrement())
+  seasonId     Int
+  game         String
+  status       String // PENDING | ACCEPTED | AWAITING_CONFIRMATION | DISPUTED | CONFIRMED | DECLINED | CANCELLED | EXPIRED | WAITING
+  challengerId String?
+  team1Id      Int?
+  team2Id      Int?
+  reportedById String?
+  reportedSide Int?
+  winnerSide   Int?
+  tournamentId Int?
+  round        Int?
+  slot         Int?
+  entry1Id     Int?
+  entry2Id     Int?
+  channelId    String?
+  messageId    String?
+  createdAt    DateTime  @default(now())
+  acceptedAt   DateTime?
+  reportedAt   DateTime?
+  confirmedAt  DateTime?
+
+  season       Season             @relation(fields: [seasonId], references: [id])
+  tournament   Tournament?        @relation(fields: [tournamentId], references: [id])
+  participants MatchParticipant[]
+
+  @@index([status])
+  @@index([tournamentId])
+}
+
+model MatchParticipant {
+  id           Int    @id @default(autoincrement())
+  matchId      Int
+  playerId     String
+  side         Int // 1 ou 2
+  ratingBefore Int?
+  ratingDelta  Int?
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+model Tournament {
+  id            Int       @id @default(autoincrement())
+  name          String
+  game          String
+  format        String // SINGLE_ELIM | ROUND_ROBIN
+  teamSize      Int       @default(1)
+  status        String    @default("REGISTRATION") // REGISTRATION | RUNNING | FINISHED | CANCELLED
+  createdById   String
+  isWeekly      Boolean   @default(false)
+  channelId     String?
+  messageId     String?
+  winnerEntryId Int?
+  closesAt      DateTime?
+  createdAt     DateTime  @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  entries TournamentEntry[]
+  matches Match[]
+}
+
+model TournamentEntry {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int
+  playerId     String?
+  teamId       Int?
+  seed         Int?
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player     Player?    @relation(fields: [playerId], references: [id])
+  team       Team?      @relation(fields: [teamId], references: [id])
+
+  @@unique([tournamentId, playerId])
+  @@unique([tournamentId, teamId])
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  playerId  String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@index([playerId])
+}
+
+model PlayerTitle {
+  id         Int      @id @default(autoincrement())
+  playerId   String
+  title      String
+  acquiredAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([playerId, title])
+}
+
+model PlayerAchievement {
+  id         Int      @id @default(autoincrement())
+  playerId   String
+  key        String
+  unlockedAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([playerId, key])
+}
+
+model TempRole {
+  id         Int      @id @default(autoincrement())
+  playerId   String
+  roleId     String
+  deleteRole Boolean  @default(false)
+  expiresAt  DateTime
+
+  player Player @relation(fields: [playerId], references: [id])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
