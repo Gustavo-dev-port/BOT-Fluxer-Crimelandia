@@ -218,3 +218,15 @@ model Setting {
   key   String @id
   value String
 }
+
+/// Mensagem que espera uma reação (substitui os botões, que o Fluxer não tem).
+/// kind: "challenge" (✅ aceitar / ❌ recusar) | "confirm" (✅ confirmar / ⚠️ contestar)
+model ReactionPrompt {
+  messageId String   @id
+  channelId String
+  kind      String
+  matchId   Int
+  createdAt DateTime @default(now())
+
+  @@index([matchId])
+}

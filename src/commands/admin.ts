@@ -1,10 +1,12 @@
-import { ChannelType, EmbedBuilder, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { afterMatchConfirmed, announceSeasonEnd, resultEmbed, updateScoreboard } from '../bot/announcer.js';
+import { afterMatchConfirmed, announceSeasonEnd, resultEmbed, retirePrompts, updateScoreboard } from '../bot/announcer.js';
 import { type ChannelKey, setChannel } from '../bot/channels.js';
-import { Colors, discordTime, mention } from '../bot/format.js';
+import { Colors, mention, timeTag } from '../bot/format.js';
 import { openWeeklyEvent } from '../bot/weeklyEvent.js';
 import { config } from '../config.js';
 import { prisma } from '../db.js';
+import { Permission } from '../fluxer/permissions.js';
+import { ChannelType, type Embed } from '../fluxer/types.js';
+import { freeText } from '../lib/args.js';
 import { UserError } from '../lib/types.js';
 import { addCoins } from '../services/economy.js';
 import { addGame, listGames, removeGame } from '../services/games.js';
@@ -21,184 +23,163 @@ const CHANNEL_TOPICS: Record<ChannelKey, string> = {
 };
 
 export const setup: Command = {
-  data: new SlashCommandBuilder()
-    .setName('setup')
-    .setDescription('Cria/configura os canais #comandos, #placar, #partidas e #eventos')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addChannelOption((o) => o.setName('categoria').setDescription('Categoria onde criar os canais').addChannelTypes(ChannelType.GuildCategory)),
-  async execute(interaction) {
-    const guild = interaction.guild;
-    if (!guild) throw new UserError('Use este comando dentro do servidor.');
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const category = interaction.options.getChannel('categoria');
-    const everyone = guild.roles.everyone.id;
-    const me = guild.members.me!.id;
-
+  name: 'setup',
+  category: 'Administração',
+  usage: '',
+  description: 'Cria/configura os canais #comandos, #placar, #partidas e #eventos',
+  adminOnly: true,
+  async execute(ctx) {
+    const { client } = ctx;
+    const existing = await client.rest.getGuildChannels(client.guildId);
+    const botId = client.botId!;
     const lines: string[] = [];
     for (const key of Object.keys(config.channels) as ChannelKey[]) {
       const name = config.channels[key];
-      let channel = guild.channels.cache.find((c) => c.name === name && c.type === ChannelType.GuildText);
+      let channel = existing.find((c) => c.type === ChannelType.GUILD_TEXT && c.name === name);
       if (!channel) {
-        channel = await guild.channels.create({
-          name,
-          type: ChannelType.GuildText,
-          topic: CHANNEL_TOPICS[key],
-          parent: category?.id,
-          // #placar é só leitura para os membros.
-          permissionOverwrites:
-            key === 'scoreboard'
-              ? [
-                  { id: everyone, deny: [PermissionFlagsBits.SendMessages] },
-                  { id: me, allow: [PermissionFlagsBits.SendMessages] },
-                ]
-              : undefined,
-        });
-        lines.push(`✨ criado ${channel}`);
+        channel = await client.rest.createGuildChannel(
+          client.guildId,
+          {
+            name,
+            type: ChannelType.GUILD_TEXT,
+            topic: CHANNEL_TOPICS[key],
+            // #placar é só leitura para os membros (o @everyone tem o mesmo ID do servidor).
+            permission_overwrites:
+              key === 'scoreboard'
+                ? [
+                    { id: client.guildId, type: 0, deny: Permission.SEND_MESSAGES.toString() },
+                    { id: botId, type: 1, allow: (Permission.SEND_MESSAGES | Permission.PIN_MESSAGES).toString() },
+                  ]
+                : undefined,
+          },
+          'Fluxer BOT setup',
+        );
+        lines.push(`✨ criado <#${channel.id}>`);
       } else {
-        lines.push(`✅ encontrado ${channel}`);
+        lines.push(`✅ encontrado <#${channel.id}>`);
       }
       await setChannel(key, channel.id);
     }
-    await updateScoreboard(interaction.client);
-    await interaction.editReply(`Canais configurados:\n${lines.join('\n')}`);
+    await updateScoreboard(client);
+    await ctx.reply(`Canais configurados:\n${lines.join('\n')}`);
   },
 };
 
 export const temporada: Command = {
-  data: new SlashCommandBuilder()
-    .setName('temporada')
-    .setDescription('Informações e controle da temporada')
-    .addSubcommand((s) => s.setName('info').setDescription('Mostra a temporada atual'))
-    .addSubcommand((s) => s.setName('encerrar').setDescription('(Admin) Encerra a temporada agora e inicia a próxima')),
-  async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
-    if (sub === 'info') {
-      const season = await getActiveSeason();
-      const past = await prisma.season.findMany({ where: { active: false }, orderBy: { number: 'desc' }, take: 5 });
-      const embed = new EmbedBuilder()
-        .setColor(Colors.primary)
-        .setTitle(`📅 Temporada ${String(season.number).padStart(2, '0')}`)
-        .setDescription(
-          `Começou ${discordTime(season.startedAt, 'D')} · termina ${discordTime(season.endsAt)}\n` +
-            `Ranking por **${config.rankingMode === 'elo' ? 'ELO' : 'pontos'}** (vitória +${config.points.win}, derrota +${config.points.loss})`,
-        );
-      if (past.length) {
-        embed.addFields({
-          name: 'Campeões anteriores',
-          value: past.map((s) => `T${String(s.number).padStart(2, '0')}: ${s.championId ? mention(s.championId) : '—'}`).join('\n'),
-        });
-      }
-      await interaction.reply({ embeds: [embed] });
+  name: 'temporada',
+  aliases: ['season'],
+  category: 'Administração',
+  usage: '[info|encerrar]',
+  description: 'Informações da temporada; `encerrar` (admin) fecha agora e inicia a próxima',
+  async execute(ctx) {
+    if (ctx.args[0]?.toLowerCase() === 'encerrar') {
+      await ctx.requireAdmin();
+      const result = await endActiveSeason();
+      await announceSeasonEnd(ctx.client, result);
+      await ctx.reply(`Temporada ${result.endedNumber} encerrada. Temporada ${result.newSeasonNumber} iniciada.`);
       return;
     }
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) throw new UserError('Apenas admins.');
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    const result = await endActiveSeason();
-    await announceSeasonEnd(interaction.client, result);
-    await interaction.editReply(`Temporada ${result.endedNumber} encerrada. Temporada ${result.newSeasonNumber} iniciada.`);
+    const season = await getActiveSeason();
+    const past = await prisma.season.findMany({ where: { active: false }, orderBy: { number: 'desc' }, take: 5 });
+    const embed: Embed = {
+      color: Colors.primary,
+      title: `📅 Temporada ${String(season.number).padStart(2, '0')}`,
+      description:
+        `Começou ${timeTag(season.startedAt, 'D')} · termina ${timeTag(season.endsAt)}\n` +
+        `Ranking por **${config.rankingMode === 'elo' ? 'ELO' : 'pontos'}** (vitória +${config.points.win}, derrota +${config.points.loss})`,
+    };
+    if (past.length) {
+      embed.fields = [
+        {
+          name: 'Campeões anteriores',
+          value: past.map((s) => `T${String(s.number).padStart(2, '0')}: ${s.championId ? mention(s.championId) : '—'}`).join('\n'),
+        },
+      ];
+    }
+    await ctx.reply({ embeds: [embed], allowed_mentions: { parse: [] } });
   },
 };
 
 export const jogo: Command = {
-  data: new SlashCommandBuilder()
-    .setName('jogo')
-    .setDescription('Jogos disponíveis para disputas')
-    .addSubcommand((s) => s.setName('listar').setDescription('Lista os jogos'))
-    .addSubcommand((s) =>
-      s
-        .setName('adicionar')
-        .setDescription('(Admin) Adiciona um jogo')
-        .addStringOption((o) => o.setName('nome').setDescription('Nome do jogo').setRequired(true).setMaxLength(50)),
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('remover')
-        .setDescription('(Admin) Remove um jogo')
-        .addStringOption((o) => o.setName('nome').setDescription('Nome do jogo').setRequired(true).setAutocomplete(true)),
-    ),
-  async autocomplete(interaction) {
-    const typed = interaction.options.getFocused().toLowerCase();
-    const games = await listGames();
-    await interaction.respond(games.filter((g) => g.name.toLowerCase().includes(typed)).slice(0, 25).map((g) => ({ name: g.name, value: g.name })));
-  },
-  async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
-    if (sub === 'listar') {
+  name: 'jogo',
+  aliases: ['jogos'],
+  category: 'Administração',
+  usage: '[listar|adicionar|remover] [nome]',
+  description: 'Jogos disponíveis para disputas (adicionar/remover: admin)',
+  async execute(ctx) {
+    const sub = ctx.args[0]?.toLowerCase();
+    if (!sub || sub === 'listar') {
       const games = await listGames();
-      await interaction.reply(`🎮 Jogos: ${games.map((g) => `**${g.name}**`).join(' · ')}`);
+      await ctx.reply(`🎮 Jogos: ${games.map((g) => `**${g.name}**`).join(' · ')}`);
       return;
     }
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) throw new UserError('Apenas admins.');
-    const name = interaction.options.getString('nome', true);
+    await ctx.requireAdmin();
+    const name = ctx.args.slice(1).join(' ').trim();
+    if (!name) throw new UserError('Informe o nome do jogo.');
     if (sub === 'adicionar') {
       const g = await addGame(name);
-      await interaction.reply(`✅ Jogo **${g.name}** adicionado.`);
-    } else {
+      await ctx.reply(`✅ Jogo **${g.name}** adicionado.`);
+    } else if (sub === 'remover') {
       await removeGame(name);
-      await interaction.reply(`🗑️ Jogo **${name}** removido.`);
+      await ctx.reply(`🗑️ Jogo **${name}** removido.`);
+    } else {
+      throw new UserError('Use `!jogo listar`, `!jogo adicionar <nome>` ou `!jogo remover <nome>`.');
     }
   },
 };
 
 export const admin: Command = {
-  data: new SlashCommandBuilder()
-    .setName('admin')
-    .setDescription('Ferramentas de moderação do Fluxer')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addSubcommand((s) =>
-      s
-        .setName('resultado')
-        .setDescription('Define o resultado de uma partida (ex.: disputas)')
-        .addIntegerOption((o) => o.setName('partida').setDescription('ID da partida').setRequired(true).setMinValue(1))
-        .addUserOption((o) => o.setName('vencedor').setDescription('Vencedor').setRequired(true)),
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('cancelar')
-        .setDescription('Cancela uma partida não confirmada')
-        .addIntegerOption((o) => o.setName('partida').setDescription('ID da partida').setRequired(true).setMinValue(1)),
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('moedas')
-        .setDescription('Dá ou remove FluxCoins')
-        .addUserOption((o) => o.setName('jogador').setDescription('Jogador').setRequired(true))
-        .addIntegerOption((o) => o.setName('quantidade').setDescription('Quantidade (negativo para remover)').setRequired(true))
-        .addStringOption((o) => o.setName('motivo').setDescription('Motivo')),
-    )
-    .addSubcommand((s) => s.setName('placar').setDescription('Recria/atualiza a mensagem do #placar'))
-    .addSubcommand((s) => s.setName('evento-semanal').setDescription('Abre o evento semanal agora')),
-  async execute(interaction) {
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) throw new UserError('Apenas admins.');
-    const sub = interaction.options.getSubcommand();
+  name: 'admin',
+  category: 'Administração',
+  usage: '<resultado|cancelar|moedas|placar|evento-semanal> ...',
+  description: 'Ferramentas de moderação',
+  adminOnly: true,
+  details: [
+    '`!admin resultado #partida @vencedor` — resolve disputas',
+    '`!admin cancelar #partida` — cancela uma partida não confirmada',
+    '`!admin moedas @jogador <quantidade> [motivo]` — negativo para remover',
+    '`!admin placar` — recria/atualiza a mensagem do #placar',
+    '`!admin evento-semanal` — abre o evento semanal agora',
+  ],
+  async execute(ctx) {
+    const sub = ctx.args[0]?.toLowerCase();
 
     if (sub === 'resultado') {
-      const result = await adminSetResult(interaction.options.getInteger('partida', true), interaction.options.getUser('vencedor', true).id);
-      await interaction.reply({ content: `🛡️ Resultado definido por ${mention(interaction.user.id)}.`, embeds: [await resultEmbed(result)] });
-      await afterMatchConfirmed(interaction.client, result);
+      const matchId = ctx.requireSmallId('#partida');
+      const winner = await ctx.requireUser(0, 'vencedor');
+      const result = await adminSetResult(matchId, winner.id);
+      await ctx.reply({ content: `🛡️ Resultado definido por ${mention(ctx.author.id)}.`, embeds: [await resultEmbed(result)] });
+      await afterMatchConfirmed(ctx.client, result);
       return;
     }
     if (sub === 'cancelar') {
-      const match = await cancelDuel(interaction.user.id, interaction.options.getInteger('partida', true), true);
-      await interaction.reply(`🚫 Partida #${match.id} cancelada.`);
+      const match = await cancelDuel(ctx.author.id, ctx.requireSmallId('#partida'), true);
+      await retirePrompts(ctx.client, match.id);
+      await ctx.reply(`🚫 Partida #${match.id} cancelada.`);
       return;
     }
     if (sub === 'moedas') {
-      const user = interaction.options.getUser('jogador', true);
-      const amount = interaction.options.getInteger('quantidade', true);
+      const user = await ctx.requireUser(0, 'jogador');
+      // A quantidade é o primeiro número inteiro (pode ser negativo) depois da menção.
+      const amountToken = ctx.args.slice(1).find((a) => /^-?\d+$/.test(a));
+      if (!amountToken) throw new UserError('Uso: `!admin moedas @jogador <quantidade> [motivo]`');
+      const amount = Number(amountToken);
+      const reason = freeText(ctx.args.slice(1).filter((a) => a !== amountToken)) || `Ajuste por ${ctx.author.username}`;
       await ensurePlayer(prisma, refOf(user));
-      const balance = await addCoins(prisma, user.id, amount, interaction.options.getString('motivo') ?? `Ajuste por ${interaction.user.username}`);
-      await interaction.reply(`🪙 ${mention(user.id)}: ${amount >= 0 ? '+' : ''}${amount} FluxCoins (saldo ${balance}).`);
+      const balance = await addCoins(prisma, user.id, amount, reason);
+      await ctx.reply(`🪙 ${mention(user.id)}: ${amount >= 0 ? '+' : ''}${amount} FluxCoins (saldo ${balance}).`);
       return;
     }
     if (sub === 'placar') {
-      await updateScoreboard(interaction.client);
-      await interaction.reply({ content: '✅ Placar atualizado.', flags: MessageFlags.Ephemeral });
+      await updateScoreboard(ctx.client);
+      await ctx.reply('✅ Placar atualizado.');
       return;
     }
     if (sub === 'evento-semanal') {
-      await openWeeklyEvent(interaction.client, interaction.user.id);
-      await interaction.reply({ content: '✅ Evento semanal aberto em #eventos.', flags: MessageFlags.Ephemeral });
+      await openWeeklyEvent(ctx.client, ctx.author.id);
+      await ctx.reply(`✅ Evento semanal aberto em #${config.channels.events}.`);
+      return;
     }
+    throw new UserError('Subcomando desconhecido. Veja `!ajuda admin`.');
   },
 };

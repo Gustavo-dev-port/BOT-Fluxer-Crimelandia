@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { prisma } from '../db.js';
 import type { MatchWithParticipants } from '../services/matches.js';
 import { playersOnSide } from '../services/matches.js';
@@ -38,7 +39,8 @@ export function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-export function discordTime(date: Date, style: 'R' | 'f' | 'D' = 'R'): string {
+/** Marcação de horário do Fluxer: `<t:unix:estilo>` (mostrada no fuso de quem lê). */
+export function timeTag(date: Date, style: 'R' | 'f' | 'D' = 'R'): string {
   return `<t:${Math.floor(date.getTime() / 1000)}:${style}>`;
 }
 
@@ -53,3 +55,9 @@ export const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '⌛ Expirada',
   WAITING: '🕓 Aguardando adversário',
 };
+
+/** Nome de comando com o prefixo, em negrito: **!duelo** */
+export const cmd = (name: string) => `**${config.prefix}${name}**`;
+
+/** Corta texto para caber nos limites de embed. */
+export const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
