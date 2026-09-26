@@ -226,7 +226,7 @@ export type ReportOutcome =
 /**
  * Registra o resultado. Fica pendente até o outro lado confirmar — assim uma
  * pessoa sozinha não consegue registrar vitória. Se o outro lado também usar
- * /resultado, o mesmo vencedor confirma e um vencedor diferente abre disputa.
+ * !resultado, o mesmo vencedor confirma e um vencedor diferente abre disputa.
  */
 export async function reportResult(userId: string, winnerId: string, matchId?: number | null): Promise<ReportOutcome> {
   return transaction(async (tx) => {

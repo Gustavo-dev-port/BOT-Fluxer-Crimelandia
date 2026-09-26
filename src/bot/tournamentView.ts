@@ -1,21 +1,18 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, type Client, EmbedBuilder } from 'discord.js';
 import { prisma } from '../db.js';
+import type { FluxerClient } from '../fluxer/client.js';
+import type { Embed } from '../fluxer/types.js';
+import { roundCount } from '../lib/bracket.js';
 import { TournamentFormat, TournamentStatus } from '../lib/types.js';
 import { entryLabel, getTournament, roundRobinTable, tournamentMatches } from '../services/tournaments.js';
-import { roundCount } from '../lib/bracket.js';
 import { sendTo } from './channels.js';
-import { Colors, discordTime, medal, STATUS_LABEL } from './format.js';
+import { clip, cmd, Colors, medal, STATUS_LABEL, timeTag } from './format.js';
+
+export const JOIN_EMOJI = '✅';
 
 export const FORMAT_LABEL: Record<string, string> = {
   SINGLE_ELIM: 'Chave simples (mata-mata)',
   ROUND_ROBIN: 'Todos contra todos',
 };
-
-export function joinButton(tournamentId: number) {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`tour:join:${tournamentId}`).setLabel('Inscrever-se').setStyle(ButtonStyle.Primary).setEmoji('📝'),
-  );
-}
 
 function roundName(round: number, total: number): string {
   const fromEnd = total - round;
@@ -26,27 +23,34 @@ function roundName(round: number, total: number): string {
   return `Rodada ${round}`;
 }
 
-export async function tournamentEmbed(tournamentId: number) {
+export async function tournamentEmbed(tournamentId: number): Promise<Embed> {
   const t = await getTournament(prisma, tournamentId);
   const label = new Map(t.entries.map((e) => [e.id, entryLabel(e)]));
-  const embed = new EmbedBuilder()
-    .setColor(t.status === TournamentStatus.FINISHED ? Colors.gold : Colors.info)
-    .setTitle(`🏆 ${t.name} (#${t.id})`)
-    .setDescription(
-      [
-        `🎮 **${t.game}** · ${FORMAT_LABEL[t.format]} · ${t.teamSize === 1 ? 'Individual' : `Times de ${t.teamSize}`}`,
-        `Status: **${{ REGISTRATION: 'Inscrições abertas', RUNNING: 'Em andamento', FINISHED: 'Finalizado', CANCELLED: 'Cancelado' }[t.status]}**`,
-        t.closesAt && t.status === TournamentStatus.REGISTRATION ? `Inscrições fecham ${discordTime(t.closesAt)}` : null,
-        t.winnerEntryId ? `👑 Campeão: ${label.get(t.winnerEntryId)}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    );
+  const statusText = { REGISTRATION: 'Inscrições abertas', RUNNING: 'Em andamento', FINISHED: 'Finalizado', CANCELLED: 'Cancelado' }[t.status];
+  const fields: NonNullable<Embed['fields']> = [];
+  const embed: Embed = {
+    color: t.status === TournamentStatus.FINISHED ? Colors.gold : Colors.info,
+    title: `🏆 ${t.name} (#${t.id})`,
+    description: [
+      `🎮 **${t.game}** · ${FORMAT_LABEL[t.format]} · ${t.teamSize === 1 ? 'Individual' : `Times de ${t.teamSize}`}`,
+      `Status: **${statusText}**`,
+      t.closesAt && t.status === TournamentStatus.REGISTRATION ? `Inscrições fecham ${timeTag(t.closesAt)}` : null,
+      t.status === TournamentStatus.REGISTRATION
+        ? t.teamSize === 1
+          ? `Reaja com ${JOIN_EMOJI} ou use ${cmd('inscrever')} ${t.id} para participar.`
+          : `Capitães: ${cmd('inscrever')} ${t.id} "Nome do Time"`
+        : null,
+      t.winnerEntryId ? `👑 Campeão: ${label.get(t.winnerEntryId)}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    fields,
+  };
 
   if (t.status === TournamentStatus.REGISTRATION) {
-    embed.addFields({
+    fields.push({
       name: `Inscritos (${t.entries.length})`,
-      value: t.entries.length ? t.entries.map(entryLabel).join(', ').slice(0, 1024) : '_Ninguém ainda — use /inscrever_',
+      value: t.entries.length ? clip(t.entries.map(entryLabel).join(', '), 1024) : '_Ninguém ainda_',
     });
     return embed;
   }
@@ -54,15 +58,15 @@ export async function tournamentEmbed(tournamentId: number) {
   const matches = await tournamentMatches(t.id);
   if (t.format === TournamentFormat.ROUND_ROBIN) {
     const table = await roundRobinTable(prisma, t.id, t.entries.map((e) => e.id));
-    embed.addFields({
+    fields.push({
       name: 'Classificação',
-      value: table.map((s, i) => `${medal(i + 1)} ${label.get(s.entry)} — ${s.wins}V/${s.losses}D`).join('\n').slice(0, 1024),
+      value: clip(table.map((s, i) => `${medal(i + 1)} ${label.get(s.entry)} — ${s.wins}V/${s.losses}D`).join('\n'), 1024),
     });
     const pending = matches.filter((m) => m.status !== 'CONFIRMED' && m.status !== 'CANCELLED');
     if (pending.length) {
-      embed.addFields({
+      fields.push({
         name: 'Partidas restantes',
-        value: pending.map((m) => `\`#${m.id}\` ${label.get(m.entry1Id!)} vs ${label.get(m.entry2Id!)}`).join('\n').slice(0, 1024),
+        value: clip(pending.map((m) => `\`#${m.id}\` ${label.get(m.entry1Id!)} vs ${label.get(m.entry2Id!)}`).join('\n'), 1024),
       });
     }
     return embed;
@@ -76,36 +80,33 @@ export async function tournamentEmbed(tournamentId: number) {
         const a = m.entry1Id ? label.get(m.entry1Id) : '_a definir_';
         const b = m.entry2Id ? label.get(m.entry2Id) : m.round === 1 ? '_bye_' : '_a definir_';
         const win = m.status === 'CONFIRMED' ? (m.winnerSide === 1 ? ` → ${a}` : ` → ${b}`) : '';
-        const status = m.status === 'CONFIRMED' ? '✅' : STATUS_LABEL[m.status]?.split(' ')[0] ?? '';
+        const status = m.status === 'CONFIRMED' ? '✅' : (STATUS_LABEL[m.status]?.split(' ')[0] ?? '');
         return `${status} \`#${m.id}\` ${a} vs ${b}${win}`;
       });
-    embed.addFields({ name: roundName(round, total), value: lines.join('\n').slice(0, 1024) || '—' });
+    fields.push({ name: roundName(round, total), value: clip(lines.join('\n'), 1024) || '—' });
   }
   return embed;
 }
 
-/** Publica o anúncio do campeonato em #eventos e guarda a mensagem. */
-export async function announceTournament(client: Client, tournamentId: number, intro?: string) {
+/** Publica o anúncio do campeonato em #eventos (com ✅ para inscrição) e guarda a mensagem. */
+export async function announceTournament(client: FluxerClient, tournamentId: number, intro?: string) {
+  const t = await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
   const msg = await sendTo(client, 'events', {
     content: intro,
     embeds: [await tournamentEmbed(tournamentId)],
-    components: [joinButton(tournamentId)],
+    allowed_mentions: { parse: ['everyone'] },
   });
-  if (msg) await prisma.tournament.update({ where: { id: tournamentId }, data: { messageId: msg.id, channelId: msg.channelId } });
+  if (!msg) return null;
+  await prisma.tournament.update({ where: { id: tournamentId }, data: { messageId: msg.id, channelId: msg.channel_id } });
+  if (t.teamSize === 1) await client.rest.addReaction(msg.channel_id, msg.id, JOIN_EMOJI).catch(() => undefined);
   return msg;
 }
 
 /** Atualiza o anúncio original (lista de inscritos / chave). */
-export async function refreshTournamentMessage(client: Client, tournamentId: number) {
+export async function refreshTournamentMessage(client: FluxerClient, tournamentId: number) {
   const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
   if (!t?.messageId || !t.channelId) return;
-  const channel = await client.channels.fetch(t.channelId).catch(() => null);
-  if (!channel?.isTextBased()) return;
-  const msg = await channel.messages.fetch(t.messageId).catch(() => null);
-  await msg
-    ?.edit({
-      embeds: [await tournamentEmbed(tournamentId)],
-      components: t.status === TournamentStatus.REGISTRATION ? [joinButton(tournamentId)] : [],
-    })
+  await client.rest
+    .editMessage(t.channelId, t.messageId, { embeds: [await tournamentEmbed(tournamentId)], allowed_mentions: { parse: [] } })
     .catch(() => undefined);
 }

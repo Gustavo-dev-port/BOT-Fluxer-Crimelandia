@@ -1,37 +1,51 @@
-import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { updateScoreboard } from './bot/announcer.js';
-import { onInteraction, onReaction } from './bot/interactions.js';
+import { onMessageCreate, onReaction } from './bot/events.js';
 import { startScheduler } from './bot/scheduler.js';
 import { config } from './config.js';
 import { prisma } from './db.js';
+import { FluxerClient } from './fluxer/client.js';
+import { BOT_PERMISSIONS } from './fluxer/permissions.js';
+import type { MessageCreateEvent, ReactionEvent } from './fluxer/types.js';
 import { seedDefaultGames } from './services/games.js';
 import { getActiveSeason } from './services/seasons.js';
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessageReactions],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User],
-});
+const client = await FluxerClient.create(config.instanceUrl, config.token(), config.guildId());
+let started = false;
 
-client.once(Events.ClientReady, async (c) => {
-  console.log(`[bot] conectado como ${c.user.tag}`);
+client.gateway.on('ready', async (user) => {
+  console.log(`[bot] conectado ao Fluxer como ${user.username} (${user.id})`);
+  // Um novo Identify (após perder a sessão) dispara READY de novo; o resto só roda uma vez.
+  if (started) return;
+  started = true;
+  console.log(`[bot] link de convite: ${client.inviteUrl(config.token(), BOT_PERMISSIONS)}`);
   await seedDefaultGames();
   const season = await getActiveSeason();
   console.log(`[bot] Temporada ${season.number} ativa até ${season.endsAt.toISOString()}`);
-  await updateScoreboard(c).catch((err) => console.error('[bot] placar:', err));
-  startScheduler(c);
+  await updateScoreboard(client).catch((err) => console.error('[bot] placar:', err));
+  startScheduler(client);
 });
 
-client.on(Events.InteractionCreate, onInteraction);
-client.on(Events.MessageReactionAdd, (reaction, user) => onReaction(reaction, user, true));
-client.on(Events.MessageReactionRemove, (reaction, user) => onReaction(reaction, user, false));
+client.gateway.on('dispatch', (event, data) => {
+  const run = (p: Promise<unknown>) => p.catch((err) => console.error(`[${event}]`, err));
+  if (event === 'MESSAGE_CREATE') run(onMessageCreate(client, data as MessageCreateEvent));
+  else if (event === 'MESSAGE_REACTION_ADD') run(onReaction(client, data as ReactionEvent, true));
+  else if (event === 'MESSAGE_REACTION_REMOVE') run(onReaction(client, data as ReactionEvent, false));
+});
 
-async function shutdown() {
+client.gateway.on('close', (code, reason) => console.warn(`[gateway] conexão fechada (${code}) ${reason}`));
+client.gateway.on('error', (err) => {
+  console.error('[gateway]', err.message);
+  // Erros fatais (token inválido etc.) param o bot.
+  if (/Gateway fechou/.test(err.message)) void shutdown(1);
+});
+
+async function shutdown(code = 0) {
   console.log('[bot] desligando...');
-  await client.destroy();
+  client.destroy();
   await prisma.$disconnect();
-  process.exit(0);
+  process.exit(code);
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => void shutdown());
+process.on('SIGTERM', () => void shutdown());
 
-client.login(config.token());
+client.login();

@@ -6,7 +6,7 @@ import { ensurePlayer, type PlayerRef } from './players.js';
 
 /**
  * Debita o item e registra o que for puramente de banco (títulos, créditos).
- * Itens que mexem em cargos do Discord são aplicados pela camada do bot,
+ * Itens que mexem em cargos do servidor são aplicados pela camada do bot,
  * que chama `refund` se algo der errado.
  */
 export async function purchase(user: PlayerRef, itemId: string): Promise<{ item: ShopItem; balance: number }> {

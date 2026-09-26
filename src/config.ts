@@ -23,9 +23,14 @@ function envBool(name: string, fallback: boolean): boolean {
 }
 
 export const config = {
-  token: () => env('DISCORD_TOKEN'),
-  clientId: () => env('DISCORD_CLIENT_ID'),
-  guildId: () => env('DISCORD_GUILD_ID'),
+  /** Token do bot, no formato `<application_id>.<secret>` (sem o prefixo "Bot"). */
+  token: () => env('FLUXER_TOKEN'),
+  /** ID do servidor (guild) onde o bot funciona. */
+  guildId: () => env('FLUXER_GUILD_ID'),
+  /** Instância do Fluxer; os endpoints vêm de `/.well-known/fluxer`. */
+  instanceUrl: env('FLUXER_INSTANCE', 'https://fluxer.app'),
+  /** Prefixo dos comandos de texto (o Fluxer não tem slash commands). */
+  prefix: env('COMMAND_PREFIX', '!'),
 
   timezone: env('TIMEZONE', 'America/Sao_Paulo'),
 

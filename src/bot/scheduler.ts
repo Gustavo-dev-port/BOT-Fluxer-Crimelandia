@@ -1,11 +1,10 @@
-import type { Client } from 'discord.js';
 import cron from 'node-cron';
 import { config } from '../config.js';
+import type { FluxerClient } from '../fluxer/client.js';
 import { prisma } from '../db.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
 import { announceSeasonEnd } from './announcer.js';
-import { getGuild } from './channels.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 
 function safe(name: string, fn: () => Promise<unknown>) {
@@ -18,24 +17,17 @@ function safe(name: string, fn: () => Promise<unknown>) {
   };
 }
 
-async function removeExpiredRoles(client: Client) {
+async function removeExpiredRoles(client: FluxerClient) {
   const expired = await prisma.tempRole.findMany({ where: { expiresAt: { lte: new Date() } } });
-  if (!expired.length) return;
-  const guild = await getGuild(client);
   for (const t of expired) {
-    const role = await guild.roles.fetch(t.roleId).catch(() => null);
-    if (role) {
-      if (t.deleteRole) await role.delete('Item da loja expirou').catch(() => undefined);
-      else {
-        const member = await guild.members.fetch(t.playerId).catch(() => null);
-        await member?.roles.remove(role).catch(() => undefined);
-      }
-    }
+    const reason = 'Item da loja expirou';
+    if (t.deleteRole) await client.rest.deleteRole(client.guildId, t.roleId, reason).catch(() => undefined);
+    else await client.rest.removeMemberRole(client.guildId, t.playerId, t.roleId, reason).catch(() => undefined);
     await prisma.tempRole.delete({ where: { id: t.id } });
   }
 }
 
-export function startScheduler(client: Client) {
+export function startScheduler(client: FluxerClient) {
   const opts = { timezone: config.timezone };
 
   // Manutenção a cada 5 minutos.

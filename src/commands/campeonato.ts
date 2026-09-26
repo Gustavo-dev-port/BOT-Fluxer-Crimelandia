@@ -1,12 +1,12 @@
-import { type AutocompleteInteraction, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { announceTournamentProgress } from '../bot/announcer.js';
 import { Colors } from '../bot/format.js';
 import { announceTournament, FORMAT_LABEL, refreshTournamentMessage, tournamentEmbed } from '../bot/tournamentView.js';
+import { config } from '../config.js';
 import { prisma } from '../db.js';
-import { TournamentFormat, TournamentStatus, UserError } from '../lib/types.js';
+import { parseSmallId } from '../lib/args.js';
+import { TournamentFormat, UserError } from '../lib/types.js';
 import { resolveGame } from '../services/games.js';
 import { consumeEventCredit } from '../services/shop.js';
-import { listTeams } from '../services/teams.js';
 import {
   cancelTournament,
   createTournament,
@@ -16,143 +16,113 @@ import {
   startTournament,
   unregister,
 } from '../services/tournaments.js';
-import { autocompleteGame, type Command, isAdmin, refOf } from './types.js';
+import { type Command, refOf } from './types.js';
 
-async function autocompleteTournament(interaction: AutocompleteInteraction, statuses?: string[]) {
-  const typed = String(interaction.options.getFocused()).toLowerCase();
-  const list = await listTournaments(statuses);
-  await interaction.respond(
-    list
-      .filter((t) => t.name.toLowerCase().includes(typed) || String(t.id).startsWith(typed))
-      .slice(0, 25)
-      .map((t) => ({ name: `#${t.id} ${t.name} (${t._count.entries} inscritos)`, value: t.id })),
-  );
-}
+const quiet = { allowed_mentions: { parse: [] as never[] } };
 
-const idOption = (desc = 'Campeonato') => (o: import('discord.js').SlashCommandIntegerOption) =>
-  o.setName('id').setDescription(desc).setRequired(true).setAutocomplete(true);
+const FORMAT_ALIASES: Record<string, TournamentFormat> = {
+  'mata-mata': TournamentFormat.SINGLE_ELIM,
+  matamata: TournamentFormat.SINGLE_ELIM,
+  chave: TournamentFormat.SINGLE_ELIM,
+  eliminacao: TournamentFormat.SINGLE_ELIM,
+  todos: TournamentFormat.ROUND_ROBIN,
+  'todos-contra-todos': TournamentFormat.ROUND_ROBIN,
+  'pontos-corridos': TournamentFormat.ROUND_ROBIN,
+  liga: TournamentFormat.ROUND_ROBIN,
+};
 
 export const campeonato: Command = {
-  data: new SlashCommandBuilder()
-    .setName('campeonato')
-    .setDescription('Campeonatos: chave simples ou todos contra todos')
-    .addSubcommand((s) =>
-      s
-        .setName('criar')
-        .setDescription('Cria um campeonato (admins, ou com crédito de evento da loja)')
-        .addStringOption((o) => o.setName('nome').setDescription('Nome do campeonato').setRequired(true).setMaxLength(60))
-        .addStringOption((o) => o.setName('jogo').setDescription('Jogo').setRequired(true).setAutocomplete(true))
-        .addStringOption((o) =>
-          o
-            .setName('formato')
-            .setDescription('Formato')
-            .setRequired(true)
-            .addChoices(
-              { name: FORMAT_LABEL.SINGLE_ELIM, value: TournamentFormat.SINGLE_ELIM },
-              { name: FORMAT_LABEL.ROUND_ROBIN, value: TournamentFormat.ROUND_ROBIN },
-            ),
-        )
-        .addIntegerOption((o) => o.setName('tamanho_time').setDescription('Jogadores por time (1 = individual)').setMinValue(1).setMaxValue(10)),
-    )
-    .addSubcommand((s) => s.setName('iniciar').setDescription('Fecha inscrições e gera a chave').addIntegerOption(idOption()))
-    .addSubcommand((s) => s.setName('chave').setDescription('Mostra a chave / classificação').addIntegerOption(idOption()))
-    .addSubcommand((s) => s.setName('listar').setDescription('Lista campeonatos abertos e em andamento'))
-    .addSubcommand((s) => s.setName('sair').setDescription('Cancela sua inscrição').addIntegerOption(idOption()))
-    .addSubcommand((s) => s.setName('cancelar').setDescription('Cancela o campeonato').addIntegerOption(idOption())),
-  async autocomplete(interaction) {
-    const focused = interaction.options.getFocused(true);
-    if (focused.name === 'jogo') return autocompleteGame(interaction);
-    const sub = interaction.options.getSubcommand();
-    const statuses = sub === 'chave' ? [TournamentStatus.REGISTRATION, TournamentStatus.RUNNING, TournamentStatus.FINISHED] : undefined;
-    await autocompleteTournament(interaction, statuses);
-  },
-  async execute(interaction) {
-    const sub = interaction.options.getSubcommand();
+  name: 'campeonato',
+  aliases: ['camp', 'torneio'],
+  category: 'Times e campeonatos',
+  usage: '<criar|iniciar|chave|listar|sair|cancelar> ...',
+  description: 'Campeonatos: chave simples ou todos contra todos',
+  details: [
+    '`!campeonato criar "Nome" <jogo> [mata-mata|todos] [tamanho do time]` — admins, ou com crédito da loja',
+    'Ex.: `!campeonato criar "Copa Crimelândia" CS2 mata-mata` · `!campeonato criar "Liga 2v2" Valorant todos 2`',
+    '`!campeonato iniciar <id>` — fecha inscrições e gera a chave (criador ou admin)',
+    '`!campeonato chave <id>` · `!campeonato listar` · `!campeonato sair <id>` · `!campeonato cancelar <id>`',
+  ],
+  async execute(ctx) {
+    const sub = ctx.args[0]?.toLowerCase();
 
     if (sub === 'criar') {
-      const admin = isAdmin(interaction);
-      const game = await resolveGame(interaction.options.getString('jogo', true));
-      if (!admin && !(await consumeEventCredit(interaction.user.id))) {
-        throw new UserError('Só admins podem criar campeonatos. Compre um **evento personalizado** na /loja para criar o seu!');
+      const [name, gameText, formatText, sizeText] = ctx.args.slice(1);
+      if (!name || !gameText) throw new UserError('Uso: `!campeonato criar "Nome" <jogo> [mata-mata|todos] [tamanho do time]`');
+      const format = formatText ? FORMAT_ALIASES[formatText.toLowerCase()] : TournamentFormat.SINGLE_ELIM;
+      if (!format) throw new UserError('Formato inválido: use `mata-mata` ou `todos`.');
+      const teamSize = sizeText ? parseSmallId(sizeText) : 1;
+      if (!teamSize) throw new UserError('Tamanho do time inválido.');
+      const game = await resolveGame(gameText);
+      if (!(await ctx.isAdmin()) && !(await consumeEventCredit(ctx.author.id))) {
+        throw new UserError(`Só admins podem criar campeonatos. Compre um **evento personalizado** na \`${config.prefix}loja\` para criar o seu!`);
       }
-      const t = await createTournament({
-        name: interaction.options.getString('nome', true),
-        game,
-        format: interaction.options.getString('formato', true) as TournamentFormat,
-        teamSize: interaction.options.getInteger('tamanho_time') ?? 1,
-        createdById: interaction.user.id,
-      });
-      await announceTournament(interaction.client, t.id, '📢 Novo campeonato! Inscreva-se com **/inscrever** ou pelo botão.');
-      await interaction.reply({ content: `✅ Campeonato **${t.name}** (#${t.id}) criado e anunciado em #eventos.`, flags: MessageFlags.Ephemeral });
+      const t = await createTournament({ name: name.slice(0, 60), game, format, teamSize, createdById: ctx.author.id });
+      await announceTournament(ctx.client, t.id, `📢 Novo campeonato! Inscreva-se com \`${config.prefix}inscrever ${t.id}\`.`);
+      await ctx.reply(`✅ Campeonato **${t.name}** (#${t.id}) criado e anunciado em #${config.channels.events}.`);
       return;
     }
 
-    if (sub === 'listar') {
+    if (sub === 'listar' || sub === undefined) {
       const list = await listTournaments();
       const lines = list.map(
-        (t) => `\`#${t.id}\` **${t.name}** — ${t.game} · ${FORMAT_LABEL[t.format]} · ${t._count.entries} inscritos · ${t.status === 'RUNNING' ? '🎮 em andamento' : '📝 inscrições abertas'}`,
+        (t) =>
+          `\`#${t.id}\` **${t.name}** — ${t.game} · ${FORMAT_LABEL[t.format]} · ${t._count.entries} inscritos · ${t.status === 'RUNNING' ? '🎮 em andamento' : '📝 inscrições abertas'}`,
       );
-      await interaction.reply({
-        embeds: [new EmbedBuilder().setColor(Colors.info).setTitle('🏆 Campeonatos').setDescription(lines.join('\n') || '_Nenhum campeonato aberto._')],
-      });
+      await ctx.reply({ embeds: [{ color: Colors.info, title: '🏆 Campeonatos', description: lines.join('\n') || '_Nenhum campeonato aberto._' }] });
       return;
     }
 
-    const id = interaction.options.getInteger('id', true);
+    const id = ctx.requireSmallId('ID do campeonato');
 
-    if (sub === 'chave') {
-      await interaction.reply({ embeds: [await tournamentEmbed(id)] });
+    if (sub === 'chave' || sub === 'ver') {
+      await ctx.reply({ ...quiet, embeds: [await tournamentEmbed(id)] });
       return;
     }
 
     if (sub === 'sair') {
-      await unregister(id, interaction.user.id);
-      await refreshTournamentMessage(interaction.client, id);
-      await interaction.reply({ content: '👋 Inscrição cancelada.', flags: MessageFlags.Ephemeral });
+      await unregister(id, ctx.author.id);
+      await refreshTournamentMessage(ctx.client, id);
+      await ctx.reply('👋 Inscrição cancelada.');
       return;
     }
 
     const t = await getTournament(prisma, id);
-    if (!isAdmin(interaction) && t.createdById !== interaction.user.id) {
+    if (!(await ctx.isAdmin()) && t.createdById !== ctx.author.id) {
       throw new UserError('Só o criador do campeonato ou um admin pode fazer isso.');
     }
 
     if (sub === 'iniciar') {
-      await interaction.deferReply();
       const progress = await startTournament(id);
-      await refreshTournamentMessage(interaction.client, id);
-      await interaction.editReply({ content: `🚀 **${t.name}** começou!`, embeds: [await tournamentEmbed(id)] });
-      await announceTournamentProgress(interaction.client, progress);
+      await refreshTournamentMessage(ctx.client, id);
+      await ctx.reply({ ...quiet, content: `🚀 **${t.name}** começou!`, embeds: [await tournamentEmbed(id)] });
+      await announceTournamentProgress(ctx.client, progress);
       return;
     }
 
     if (sub === 'cancelar') {
       await cancelTournament(id);
-      await refreshTournamentMessage(interaction.client, id);
-      await interaction.reply(`🚫 Campeonato **${t.name}** cancelado.`);
+      await refreshTournamentMessage(ctx.client, id);
+      await ctx.reply(`🚫 Campeonato **${t.name}** cancelado.`);
+      return;
     }
+
+    throw new UserError('Subcomando desconhecido. Veja `!ajuda campeonato`.');
   },
 };
 
 export const inscrever: Command = {
-  data: new SlashCommandBuilder()
-    .setName('inscrever')
-    .setDescription('Entra em um campeonato')
-    .addIntegerOption((o) => o.setName('campeonato').setDescription('Campeonato').setRequired(true).setAutocomplete(true))
-    .addStringOption((o) => o.setName('time').setDescription('Seu time (campeonatos em times)').setAutocomplete(true)),
-  async autocomplete(interaction) {
-    const focused = interaction.options.getFocused(true);
-    if (focused.name === 'time') {
-      const teams = await listTeams(interaction.user.id);
-      await interaction.respond(teams.slice(0, 25).map((t) => ({ name: `${t.name} (${t.members.length})`, value: t.name })));
-      return;
-    }
-    await autocompleteTournament(interaction, [TournamentStatus.REGISTRATION]);
-  },
-  async execute(interaction) {
-    const id = interaction.options.getInteger('campeonato', true);
-    const { tournament, label } = await register(id, refOf(interaction.user), interaction.options.getString('time'));
-    await refreshTournamentMessage(interaction.client, id);
-    await interaction.reply(`📝 ${label} inscrito em **${tournament.name}**!`);
+  name: 'inscrever',
+  aliases: ['entrar'],
+  category: 'Times e campeonatos',
+  usage: '<campeonato> ["Nome do Time"]',
+  description: 'Entra em um campeonato (ou reaja com ✅ no anúncio)',
+  details: ['Individual: `!inscrever 3` · Em times (capitão): `!inscrever 3 "Os Brabos"`'],
+  async execute(ctx) {
+    const id = ctx.requireSmallId('ID do campeonato');
+    const teamName = ctx.args.filter((a) => parseSmallId(a) === null).join(' ').trim() || null;
+    const { tournament, label } = await register(id, refOf(ctx.author), teamName);
+    await refreshTournamentMessage(ctx.client, id);
+    await ctx.reply({ ...quiet, content: `📝 ${label} inscrito em **${tournament.name}**!` });
   },
 };
