@@ -22,6 +22,12 @@ const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
   scoreboard: 'Ranking atualizado automaticamente',
   matches: 'Histórico das disputas',
   events: 'Inscrição para campeonatos',
+  promo: 'Promoções de jogos com 40%+ de desconto (atualizado a cada 30 min)',
+};
+
+/** Nomes com emoji usados ao criar; se o Fluxer recusar, cria com o nome simples. */
+const DECORATED_NAMES: Partial<Record<ChannelKey, string>> = {
+  promo: '💸┃promocoes',
 };
 
 export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';
@@ -30,7 +36,7 @@ export const setup: Command = {
   name: 'setup',
   category: 'Administração',
   usage: '',
-  description: 'Cria/configura os canais #comandos, #placar, #partidas e #eventos e o cargo de campeão',
+  description: 'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes) e o cargo de campeão',
   adminOnly: true,
   async execute(ctx) {
     const { client } = ctx;
@@ -44,23 +50,26 @@ export const setup: Command = {
         (c) => c.type === ChannelType.GUILD_TEXT && c.name && normalizeChannelName(c.name) === normalizeChannelName(name),
       );
       if (!channel) {
-        channel = await client.rest.createGuildChannel(
-          client.guildId,
-          {
-            name,
-            type: ChannelType.GUILD_TEXT,
-            topic,
-            // #placar é só leitura para os membros (o @everyone tem o mesmo ID do servidor).
-            permission_overwrites:
-              key === 'scoreboard'
-                ? [
-                    { id: client.guildId, type: 0, deny: Permission.SEND_MESSAGES.toString() },
-                    { id: botId, type: 1, allow: (Permission.SEND_MESSAGES | Permission.PIN_MESSAGES).toString() },
-                  ]
-                : undefined,
-          },
-          'Fluxer BOT setup',
-        );
+        const create = (channelName: string) =>
+          client.rest.createGuildChannel(
+            client.guildId,
+            {
+              name: channelName,
+              type: ChannelType.GUILD_TEXT,
+              topic,
+              // #placar é só leitura para os membros (o @everyone tem o mesmo ID do servidor).
+              permission_overwrites:
+                key === 'scoreboard'
+                  ? [
+                      { id: client.guildId, type: 0, deny: Permission.SEND_MESSAGES.toString() },
+                      { id: botId, type: 1, allow: (Permission.SEND_MESSAGES | Permission.PIN_MESSAGES).toString() },
+                    ]
+                  : undefined,
+            },
+            'Fluxer BOT setup',
+          );
+        const decorated = DECORATED_NAMES[key];
+        channel = decorated ? await create(decorated).catch(() => create(name)) : await create(name);
         lines.push(`✨ criado <#${channel.id}>`);
       } else {
         lines.push(`✅ encontrado <#${channel.id}>`);

@@ -1,6 +1,7 @@
 import { updateScoreboard } from './bot/announcer.js';
 import { onMessageCreate, onReaction } from './bot/events.js';
 import { startScheduler } from './bot/scheduler.js';
+import { startPromotionScheduler } from './schedulers/promotionScheduler.js';
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { FluxerClient } from './fluxer/client.js';
@@ -27,6 +28,7 @@ client.gateway.on('ready', async (user) => {
   log.info(`Temporada ${season.number} ativa até ${season.endsAt.toISOString()}`);
   await updateScoreboard(client).catch((err: unknown) => log.error('falha ao atualizar o placar', errorMeta(err)));
   startScheduler(client);
+  startPromotionScheduler(client);
 });
 
 client.gateway.on('dispatch', (event, data) => {

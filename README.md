@@ -10,6 +10,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Campeonatos** — chave simples (mata-mata) ou todos contra todos
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
 - **Eventos semanais** — toda sexta às 20h: _Night Fluxer_, inscrição reagindo com ✅
+- **Promoções** — Steam, Epic, GOG, Humble, Nuuvem e Green Man Gaming a cada 30 min, sem repetir
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
 - **Conquistas** — medalhas desbloqueadas automaticamente
 - **Rivalidades** — `!rival` descobre quem vocês mais enfrentam
@@ -90,14 +91,41 @@ npx prisma migrate dev --schema prisma/postgres/schema.prisma --name minha_mudan
 
 Um teste falha se os dois schemas ficarem diferentes.
 
+## Promoções
+
+A cada 30 minutos o bot busca promoções e publica as novas no canal de promoções (`!setup` cria o `#💸┃promocoes`, ou use `!config promo #canal`).
+
+| Loja                      | Como                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Steam                     | API da loja (`featuredcategories`, ofertas em destaque, preços em R$)                                  |
+| Epic Games                | GraphQL da loja (`searchStore` com `onSale`)                                                           |
+| GOG                       | Catálogo público (`catalog.gog.com`, ordenado por desconto)                                            |
+| Humble Bundle             | Busca da Humble Store (preços em US$)                                                                  |
+| Nuuvem e Green Man Gaming | API oficial da [IsThereAnyDeal](https://docs.isthereanydeal.com) (precisa de `ITAD_API_KEY`, gratuita) |
+
+Regras:
+
+- Descontos abaixo de **40%** são ignorados (`PROMO_MIN_DISCOUNT`).
+- A mesma promoção **não é repostada**: fica salva no banco (tabela `Promotion`).
+- Se o **preço mudar**, o banco é atualizado e a mensagem original é editada ("🔄 PREÇO ATUALIZADO").
+- Com desconto **≥ 80%**, o cargo definido em `!config promo-role @Caçadores de Promoção` é mencionado.
+- No máximo 10 postagens por rodada (`PROMO_MAX_POSTS_PER_RUN`); o resto sai nas próximas.
+- Uma loja fora do ar ou que mude o formato é registrada no log e as outras continuam.
+- O Fluxer não tem botões: o "Ver oferta" é um link no próprio embed.
+
+Comandos: `!promocoes` lista as melhores promoções ativas; `!promocoes atualizar` (admin) busca agora e mostra um resumo.
+
+As lojas não têm contrato de API estável. Se uma delas começar a falhar, o log (`logs/combined.log`) mostra qual. Dá para desligá-la tirando o nome de `PROMO_SOURCES`, ou trocá-la pela IsThereAnyDeal (adicione o nome da loja em `ITAD_SHOPS`, ex.: `Steam`).
+
 ## Canais
 
-| Canal       | Função                                                                    |
-| ----------- | ------------------------------------------------------------------------- |
-| `#comandos` | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
-| `#placar`   | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
-| `#partidas` | Histórico das disputas confirmadas e das disputas contestadas             |
-| `#eventos`  | Campeonatos, evento semanal e fim de temporada                            |
+| Canal           | Função                                                                    |
+| --------------- | ------------------------------------------------------------------------- |
+| `#comandos`     | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
+| `#placar`       | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
+| `#partidas`     | Histórico das disputas confirmadas e das disputas contestadas             |
+| `#eventos`      | Campeonatos, evento semanal e fim de temporada                            |
+| `#💸┃promocoes` | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
 
 Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 

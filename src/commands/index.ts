@@ -7,6 +7,7 @@ import { configCommand } from './config.js';
 import { aceitar, cancelar, confirmar, contestar, duelo, partidas, recusar, resultado } from './duelo.js';
 import { comprar, loja, saldo, titulo } from './economia.js';
 import { perfil, rank, rival, top10 } from './ranking.js';
+import { promocoes } from './promocoes.js';
 import { time } from './time.js';
 import { type Category, type Command, usageOf } from './types.js';
 
@@ -33,7 +34,7 @@ const ajuda: Command = {
       });
       return;
     }
-    const categories: Category[] = ['Duelos', 'Ranking', 'Times e campeonatos', 'Economia', 'Administração'];
+    const categories: Category[] = ['Duelos', 'Ranking', 'Times e campeonatos', 'Economia', 'Promoções', 'Administração'];
     await ctx.reply({
       embeds: [
         {
@@ -78,6 +79,8 @@ export const commands: Command[] = [
   comprar,
   titulo,
   saldo,
+  // Promoções
+  promocoes,
   // Administração
   temporada,
   jogo,

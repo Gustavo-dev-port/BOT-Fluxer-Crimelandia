@@ -206,6 +206,7 @@ describe('comandos e reações', () => {
       'Ranking',
       'Times e campeonatos',
       'Economia',
+      'Promoções',
       'Administração',
     ]);
     const one = say(GUSTAVO, '!ajuda rival');
@@ -310,5 +311,55 @@ describe('comandos e reações', () => {
     expect(settings).toMatchObject({ commandsChannelId: 'c-comandos', scoreboardChannelId: 'c-placar', eventChannelId: 'c-eventos' });
     expect(settings.championRoleId).toMatch(/^r/);
     mock.roles = mock.roles.filter((r) => r.id === GUILD_ID);
+  });
+
+  it('promoções: publica no canal configurado, menciona o cargo em ≥80% e edita quando o preço muda', async () => {
+    const { FluxerPromotionPublisher } = await import('../src/bot/promotionPublisher.js');
+    const { PromotionService } = await import('../src/services/promotions/promotionService.js');
+    const { PromotionRepository } = await import('../src/database/promotionRepository.js');
+    await prisma.guildSettings.create({ data: { guildId: GUILD_ID, promoChannelId: '7770001', promoRoleId: '8880002' } });
+
+    const base = {
+      platform: 'Steam',
+      image: 'https://img/x.jpg',
+      currency: 'BRL',
+      expiresAt: null,
+      url: 'https://store.steampowered.com/app/1/',
+    };
+    let offers = [
+      { ...base, id: 'steam:1', title: 'Hollow Knight', oldPrice: 4699, currentPrice: 704, discount: 85 },
+      { ...base, id: 'steam:2', title: 'Celeste', oldPrice: 3699, currentPrice: 1849, discount: 50 },
+    ];
+    const adapter = { name: 'fake', fetchOffers: async () => offers };
+    const svc = new PromotionService(
+      [adapter],
+      new PromotionRepository(),
+      new FluxerPromotionPublisher(client),
+      { minDiscount: 40, maxPostsPerRun: 10, staleDays: 3 },
+      { info: () => undefined, warn: () => undefined },
+    );
+    await svc.sync();
+
+    const posts = mock.callsTo('POST', /^\/channels\/7770001\/messages$/);
+    expect(posts).toHaveLength(2);
+    const [hk, celeste] = posts;
+    expect(hk.body.content).toContain('<@&8880002>');
+    expect(hk.body.allowed_mentions).toEqual({ roles: ['8880002'] });
+    expect(hk.body.embeds[0].title).toBe('🟢 NOVA PROMOÇÃO');
+    expect(celeste.body.content).toBeUndefined(); // 50%: sem menção
+    expect(celeste.body.allowed_mentions).toEqual({ parse: [] });
+
+    offers = [{ ...offers[0], currentPrice: 469, discount: 90 }, offers[1]];
+    await svc.sync();
+    const edit = mock.callsTo('PATCH', new RegExp(`^/channels/7770001/messages/${hk.response.id}$`))[0];
+    expect(edit.body.embeds[0].title).toBe('🔄 PREÇO ATUALIZADO');
+    expect(mock.callsTo('POST', /^\/channels\/7770001\/messages$/)).toHaveLength(2); // nada repostado
+
+    const list = say(GUSTAVO, '!promocoes');
+    const reply = await waitFor(() => replyTo(list));
+    expect(reply.body.embeds[0].description.split('\n')[0]).toContain('-90%');
+
+    const denied = say(GUSTAVO, '!promocoes atualizar');
+    expect((await waitFor(() => replyTo(denied))).body.content).toMatch(/Apenas admins/);
   });
 });

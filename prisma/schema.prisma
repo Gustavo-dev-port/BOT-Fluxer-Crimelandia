@@ -247,3 +247,28 @@ model GuildSettings {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
+
+/// Promoção de jogo vista em alguma loja. O ID evita repostar a mesma oferta.
+model Promotion {
+  /// "<plataforma>:<id na loja>", ex.: "steam:1091500"
+  id           String    @id
+  title        String
+  platform     String
+  image        String?
+  /// Preços em centavos
+  oldPrice     Int
+  currentPrice Int
+  currency     String
+  discount     Int
+  expiresAt    DateTime?
+  url          String
+  active       Boolean   @default(true)
+  /// Mensagem publicada no canal de promoções (para editar quando o preço muda)
+  channelId    String?
+  messageId    String?
+  firstSeenAt  DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([active, discount])
+}
