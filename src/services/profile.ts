@@ -9,6 +9,8 @@ import { countTournamentTitles } from './achievements.js';
 
 const WEEK = 7 * 86_400_000;
 
+const average = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+
 export async function getProfile(playerId: string) {
   const player = await prisma.player.findUnique({
     where: { id: playerId },
@@ -53,7 +55,13 @@ export async function getProfile(playerId: string) {
     winRate: total === 0 ? 0 : Math.round((stats.wins / total) * 100),
     winsThisWeek,
     favoriteGames,
-    career: { matches: confirmed.length, wins: allWins, seasonTitles, tournamentTitles },
+    career: {
+      matches: confirmed.length,
+      wins: allWins,
+      seasonTitles,
+      tournamentTitles,
+      avgDurationSeconds: average(confirmed.map((p) => p.match.durationSeconds).filter((d): d is number => d !== null)),
+    },
     achievements: ACHIEVEMENTS.filter((a) => player.achievements.some((x) => x.key === a.key)),
   };
 }

@@ -402,4 +402,47 @@ describe('comandos e reações', () => {
     const list = say(GUSTAVO, '!gratis');
     expect((await waitFor(() => replyTo(list))).body.embeds[0].description).toContain('Death Stranding');
   });
+
+  it('etapa 4: !resultado com duração, !evento e !resgatar (apelido especial e VIP temporário)', async () => {
+    // Duelo com duração informada.
+    const d = say(GUSTAVO, '!duelo <@200> CS2', [LUCAS]);
+    const challenge = await waitFor(() => replyTo(d)?.response);
+    react(LUCAS, challenge.id, '✅');
+    await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
+    const r = say(GUSTAVO, '!resultado <@100> 25min', [GUSTAVO]);
+    const awaiting = await waitFor(() => replyTo(r)?.response);
+    react(LUCAS, awaiting.id, '✅');
+    const done = await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${awaiting.id}$`))[0]);
+    expect(done.body.embeds[0].description).toContain('Duração: **25 min**');
+
+    // !evento é o mesmo comando de campeonatos.
+    const ev = say(GUSTAVO, '!evento listar');
+    expect((await waitFor(() => replyTo(ev))).body.embeds[0].title).toContain('Campeonatos');
+
+    // Apelido especial: valida antes de cobrar, aplica o apelido e devolve o original depois.
+    await prisma.player.update({ where: { id: '100' }, data: { coins: 1000 } });
+    const empty = say(GUSTAVO, '!resgatar apelido-especial');
+    expect((await waitFor(() => replyTo(empty))).body.content).toMatch(/Informe o apelido/);
+    expect((await prisma.player.findUniqueOrThrow({ where: { id: '100' } })).coins).toBe(1000);
+
+    const nick = say(GUSTAVO, '!resgatar apelido-especial Rei do Clutch');
+    expect((await waitFor(() => replyTo(nick))).body.content).toContain('✨ Rei do Clutch');
+    const patch = mock.callsTo('PATCH', new RegExp(`^/guilds/${GUILD_ID}/members/100$`))[0];
+    expect(patch.body).toEqual({ nick: '✨ Rei do Clutch' });
+    expect((await prisma.player.findUniqueOrThrow({ where: { id: '100' } })).coins).toBe(700);
+
+    const { restoreExpiredNicknames } = await import('../src/bot/scheduler.js');
+    await restoreExpiredNicknames(client, new Date(Date.now() + 8 * 86_400_000));
+    const restore = mock.callsTo('PATCH', new RegExp(`^/guilds/${GUILD_ID}/members/100$`))[1];
+    expect(restore.body).toEqual({ nick: null }); // não tinha apelido antes
+    expect(await prisma.tempNickname.count()).toBe(0);
+
+    // VIP agora é temporário.
+    process.env.SHOP_VIP_ROLE_ID = '9990001';
+    const vip = say(GUSTAVO, '!resgatar cargo-vip');
+    expect((await waitFor(() => replyTo(vip))).body.content).toContain('<@&9990001> até');
+    expect(mock.callsTo('PUT', new RegExp(`^/guilds/${GUILD_ID}/members/100/roles/9990001$`))).toHaveLength(1);
+    expect(await prisma.tempRole.findFirstOrThrow({ where: { playerId: '100', roleId: '9990001' } })).toMatchObject({ deleteRole: false });
+    delete process.env.SHOP_VIP_ROLE_ID;
+  });
 });

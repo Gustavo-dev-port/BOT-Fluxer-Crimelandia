@@ -30,6 +30,7 @@ const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
 const DECORATED_NAMES: Partial<Record<ChannelKey, string>> = {
   promo: '💸┃promocoes',
   freeGames: '🎁┃jogos-gratis',
+  events: '📜┃eventos',
 };
 
 export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';

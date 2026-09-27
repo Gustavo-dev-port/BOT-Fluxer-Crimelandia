@@ -5,7 +5,7 @@ import { admin, jogo, setup, temporada } from './admin.js';
 import { campeonato, inscrever } from './campeonato.js';
 import { configCommand } from './config.js';
 import { aceitar, cancelar, confirmar, contestar, duelo, partidas, recusar, resultado } from './duelo.js';
-import { comprar, loja, saldo, titulo } from './economia.js';
+import { loja, resgatar, saldo, titulo } from './economia.js';
 import { perfil, rank, rival, top10 } from './ranking.js';
 import { gratis } from './gratis.js';
 import { promocoes } from './promocoes.js';
@@ -77,7 +77,7 @@ export const commands: Command[] = [
   inscrever,
   // Economia
   loja,
-  comprar,
+  resgatar,
   titulo,
   saldo,
   // Promoções

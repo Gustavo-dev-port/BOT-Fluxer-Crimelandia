@@ -1,7 +1,7 @@
 import { afterMatchConfirmed, announceDisputed, attachPrompt, awaitingEmbed, challengeEmbed, resultEmbed } from '../bot/announcer.js';
 import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from '../bot/duelActions.js';
 import { Colors, mention, STATUS_LABEL, versus } from '../bot/format.js';
-import { freeText } from '../lib/args.js';
+import { freeText, parseDuration } from '../lib/args.js';
 import { UserError } from '../lib/types.js';
 import { resolveGame } from '../services/games.js';
 import { cancelDuel, createDuel, listOpenMatches, playersOnSide, reportResult } from '../services/matches.js';
@@ -67,12 +67,17 @@ export const resultado: Command = {
   name: 'resultado',
   aliases: ['venci', 'placar-partida'],
   category: 'Duelos',
-  usage: '@vencedor [#partida]',
+  usage: '@vencedor [duração] [#partida]',
   description: 'Registra quem venceu — o outro lado precisa confirmar',
-  details: ['Em times, mencione qualquer jogador do time vencedor.', ID_HINT],
+  details: [
+    'Em times, mencione qualquer jogador do time vencedor.',
+    'Duração opcional (ex.: `25min`, `1h20`); sem ela, conta do aceite até o resultado.',
+    ID_HINT,
+  ],
   async execute(ctx) {
     const winner = await ctx.requireUser(0, 'vencedor');
-    const outcome = await reportResult(ctx.author.id, winner.id, ctx.smallId());
+    const duration = ctx.args.map(parseDuration).find((d): d is number => d !== null) ?? null;
+    const outcome = await reportResult(ctx.author.id, winner.id, ctx.smallId(), duration);
 
     if (outcome.kind === 'awaiting') {
       const confirmSide = outcome.match.reportedSide === 1 ? 2 : 1;

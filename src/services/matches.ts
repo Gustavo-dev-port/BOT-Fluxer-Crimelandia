@@ -207,6 +207,12 @@ export async function cancelDuel(userId: string, matchId: number | null | undefi
 
 // ─── Resultado ──────────────────────────────────────────────────────────────
 
+/** Tempo entre o aceite e agora, em segundos (null se a partida não tem aceite). */
+export function measuredDuration(match: { acceptedAt: Date | null }, now: Date): number | null {
+  if (!match.acceptedAt) return null;
+  return Math.max(0, Math.round((now.getTime() - match.acceptedAt.getTime()) / 1000));
+}
+
 export interface ConfirmedMatch {
   match: MatchWithParticipants;
   winnerSide: Side;
@@ -225,7 +231,13 @@ export type ReportOutcome =
  * pessoa sozinha não consegue registrar vitória. Se o outro lado também usar
  * !resultado, o mesmo vencedor confirma e um vencedor diferente abre disputa.
  */
-export async function reportResult(userId: string, winnerId: string, matchId?: number | null): Promise<ReportOutcome> {
+export async function reportResult(
+  userId: string,
+  winnerId: string,
+  matchId?: number | null,
+  /** Duração informada pelo jogador; sem ela, mede do aceite até agora. */
+  durationSeconds?: number | null,
+): Promise<ReportOutcome> {
   return transaction(async (tx) => {
     const match = await resolveMatch(
       tx,
@@ -254,6 +266,7 @@ export async function reportResult(userId: string, winnerId: string, matchId?: n
       return { kind: 'disputed', match: disputed };
     }
 
+    const now = new Date();
     const updated = await tx.match.update({
       where: { id: match.id },
       data: {
@@ -261,7 +274,8 @@ export async function reportResult(userId: string, winnerId: string, matchId?: n
         reportedById: userId,
         reportedSide: reporterSide,
         winnerSide,
-        reportedAt: new Date(),
+        reportedAt: now,
+        durationSeconds: durationSeconds ?? measuredDuration(match, now),
       },
       include: { participants: true },
     });
@@ -308,6 +322,7 @@ export async function adminSetResult(matchId: number, winnerId: string): Promise
 
 /** Aplica ELO, pontos, moedas, conquistas e avanço de chave. */
 async function finalizeMatch(tx: Prisma.TransactionClient, match: MatchWithParticipants, winnerSide: Side): Promise<ConfirmedMatch> {
+  const now = new Date();
   const season = await getActiveSeason(tx);
   const loserSide = otherSide(winnerSide);
 
@@ -357,7 +372,13 @@ async function finalizeMatch(tx: Prisma.TransactionClient, match: MatchWithParti
 
   const updated = await tx.match.update({
     where: { id: match.id },
-    data: { status: MatchStatus.CONFIRMED, winnerSide, confirmedAt: new Date(), seasonId: season.id },
+    data: {
+      status: MatchStatus.CONFIRMED,
+      winnerSide,
+      confirmedAt: now,
+      seasonId: season.id,
+      durationSeconds: match.durationSeconds ?? measuredDuration(match, now),
+    },
     include: { participants: true },
   });
 

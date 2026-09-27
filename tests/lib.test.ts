@@ -119,3 +119,40 @@ describe('conquistas e loja', () => {
     expect(parseHexColor('xyz')).toBeNull();
   });
 });
+
+describe('etapa 4: duração, apelidos e calendário', async () => {
+  const { parseDuration } = await import('../src/lib/args.js');
+  const { specialNickname } = await import('../src/lib/shop.js');
+  const { startOfNextMonth } = await import('../src/lib/calendar.js');
+  const { formatDuration } = await import('../src/bot/format.js');
+
+  it('duração da partida', () => {
+    expect(parseDuration('25min')).toBe(1500);
+    expect(parseDuration('25m')).toBe(1500);
+    expect(parseDuration('1h')).toBe(3600);
+    expect(parseDuration('1h20')).toBe(4800);
+    expect(parseDuration('1h20m')).toBe(4800);
+    expect(parseDuration('<@1>')).toBeNull();
+    expect(parseDuration('25')).toBeNull();
+    expect(formatDuration(1500)).toBe('25 min');
+    expect(formatDuration(4800)).toBe('1h20');
+    expect(formatDuration(3600)).toBe('1h');
+  });
+
+  it('apelido especial: prefixo, sem menções e no máximo 32 caracteres', () => {
+    expect(specialNickname('Rei do Clutch')).toBe('✨ Rei do Clutch');
+    expect(specialNickname('  @everyone <@123>  ')).toBe('✨ everyone 123');
+    expect(specialNickname('   ')).toBeNull();
+    expect(specialNickname('x'.repeat(50))!.length).toBe(32);
+  });
+
+  it('temporada mensal termina à meia-noite do dia 1º no fuso configurado', () => {
+    const sp = 'America/Sao_Paulo';
+    expect(startOfNextMonth(new Date('2026-09-27T01:00:00Z'), sp).toISOString()).toBe('2026-10-01T03:00:00.000Z');
+    // 30/09 23:59 em São Paulo ainda é setembro.
+    expect(startOfNextMonth(new Date('2026-10-01T02:59:00Z'), sp).toISOString()).toBe('2026-10-01T03:00:00.000Z');
+    expect(startOfNextMonth(new Date('2026-12-15T12:00:00Z'), sp).toISOString()).toBe('2027-01-01T03:00:00.000Z');
+    // Horário de verão europeu começa no fim de março.
+    expect(startOfNextMonth(new Date('2026-03-10T12:00:00Z'), 'Europe/Lisbon').toISOString()).toBe('2026-03-31T23:00:00.000Z');
+  });
+});

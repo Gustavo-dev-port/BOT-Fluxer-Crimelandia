@@ -11,7 +11,7 @@ import { getSetting, setSetting } from '../services/settings.js';
 import { entryLabel, getTournament, type TournamentProgress } from '../services/tournaments.js';
 import { guildSettings } from '../database/guildSettingsRepository.js';
 import { getChannelId, sendTo } from './channels.js';
-import { clip, cmd, Colors, medal, mention, sideLabel, signed, timeTag, versus } from './format.js';
+import { clip, cmd, Colors, formatDuration, medal, mention, sideLabel, signed, timeTag, versus } from './format.js';
 import { refreshTournamentMessage } from './tournamentView.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
@@ -99,6 +99,7 @@ export async function resultEmbed(result: ConfirmedMatch): Promise<Embed> {
     `🏆 ${await sideLabel(match, winnerSide)} venceu ${await sideLabel(match, loserSide)}`,
     '',
     `📈 ELO: **${signed(delta)}** / **${signed(-delta)}**`,
+    ...(match.durationSeconds ? [`⏱️ Duração: **${formatDuration(match.durationSeconds)}**`] : []),
     `🪙 FluxCoins: vencedor **+${config.coins.win}**, participação **+${config.coins.participation}**`,
   ];
   for (const u of result.unlocked) {

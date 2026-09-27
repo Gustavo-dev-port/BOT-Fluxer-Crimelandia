@@ -50,6 +50,8 @@ export const config = {
   },
 
   season: {
+    /** "monthly": termina à meia-noite do dia 1º do mês seguinte. "days": dura SEASON_DAYS dias. */
+    mode: env('SEASON_MODE', 'monthly') as 'monthly' | 'days',
     durationDays: envInt('SEASON_DAYS', 30),
     /** 0 = reset total para 1000; 0.5 = mantém metade da distância até 1000. */
     carryOver: Number(process.env.SEASON_CARRY_OVER ?? '0'),

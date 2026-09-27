@@ -33,10 +33,10 @@ const FORMAT_ALIASES: Record<string, TournamentFormat> = {
 
 export const campeonato: Command = {
   name: 'campeonato',
-  aliases: ['camp', 'torneio'],
+  aliases: ['evento', 'eventos', 'camp', 'torneio'],
   category: 'Times e campeonatos',
   usage: '<criar|iniciar|chave|listar|sair|cancelar> ...',
-  description: 'Campeonatos: chave simples ou todos contra todos',
+  description: 'Eventos e campeonatos (1v1, 2v2…): mata-mata ou todos contra todos',
   details: [
     '`!campeonato criar "Nome" <jogo> [mata-mata|todos] [tamanho do time]` — admins, ou com crédito da loja',
     'Ex.: `!campeonato criar "Copa Crimelândia" CS2 mata-mata` · `!campeonato criar "Liga 2v2" Valorant todos 2`',
