@@ -10,6 +10,7 @@ import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute }
 import { mention } from '../embeds/format.js';
 import { refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
 import { JOIN_EMOJI } from '../embeds/tournamentEmbed.js';
+import { trackReaction } from '../services/notifications/missionTracker.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 const log = scoped('reações');
@@ -62,6 +63,7 @@ async function handlePromptReaction(client: FluxerClient, event: ReactionEvent):
 
 export async function onReaction(client: FluxerClient, event: ReactionEvent, added: boolean) {
   if (event.guild_id !== client.guildId || event.user_id === client.botId) return;
+  if (added) void trackReaction(client, event);
   try {
     if (added && (await handlePromptReaction(client, event))) return;
 

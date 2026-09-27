@@ -5,6 +5,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { onMessageCreate } from '../src/events/messageCreate.js';
 import { onReaction } from '../src/events/reactions.js';
+import { onVoiceEvent } from '../src/events/voiceState.js';
+import { trackVoice } from '../src/services/notifications/missionTracker.js';
+import { todayKey } from '../src/services/missions.js';
 import { prisma } from '../src/database/client.js';
 import { FluxerClient } from '../src/fluxer/client.js';
 import { RestClient } from '../src/fluxer/rest.js';
@@ -73,7 +76,9 @@ beforeAll(async () => {
     if (event === 'MESSAGE_CREATE') void onMessageCreate(client, data as MessageCreateEvent);
     if (event === 'MESSAGE_REACTION_ADD') void onReaction(client, data as ReactionEvent, true);
     if (event === 'MESSAGE_REACTION_REMOVE') void onReaction(client, data as ReactionEvent, false);
+    onVoiceEvent(client, event, data);
   });
+  trackVoice(client);
   const ready = new Promise((r) => client.gateway.once('ready', r));
   client.login();
   await ready;
@@ -505,5 +510,64 @@ describe('comandos e reações', () => {
     const top = say(GUSTAVO, '!rivalidades');
     const topEmbed = await waitFor(() => replyTo(top)?.body.embeds[0]);
     expect(topEmbed.description).toContain('<@100> **2** × **1** <@200> — 3 duelos');
+  });
+
+  it('etapa 6: missões por mensagem, voz e partida; aviso em #comandos; !missoes e !coletar', async () => {
+    const date = todayKey();
+    for (const [kind, target, reward] of [
+      ['send_messages', 1, 20],
+      ['join_voice', 1, 30],
+      ['win_duels', 1, 60],
+    ] as const) {
+      await prisma.dailyMission.create({ data: { date, kind, target, reward } });
+    }
+    const JOAO = user('400', 'joao');
+    const announced = (who: string) =>
+      mock
+        .callsTo('POST', new RegExp(`^/channels/${CHANNELS.comandos}/messages$`))
+        .filter((c) => c.body.content?.startsWith(`🎯 <@${who}>`));
+
+    // Comandos e mensagens curtas não contam; uma mensagem normal conclui a missão.
+    say(JOAO, '!ajuda');
+    say(JOAO, 'ok');
+    say(JOAO, 'boa noite, reino!');
+    const msgDone = await waitFor(() => announced('400')[0]);
+    expect(msgDone.body.content).toContain('Envie 1 mensagens no servidor');
+    expect(msgDone.body.allowed_mentions).toEqual({ users: ['400'] });
+
+    // Entrar numa sala de voz (VOICE_STATE_UPDATE) conclui "Entre em 1 salas".
+    mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: 'voz-1', user_id: '400', member: { user: JOAO, roles: [] } });
+    await waitFor(() => announced('400').length === 2);
+    // Sair e mudar mute não geram nada novo; bots são ignorados.
+    mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: null, user_id: '400', member: { user: JOAO, roles: [] } });
+    mock.dispatch('VOICE_STATE_UPDATE', {
+      guild_id: GUILD_ID,
+      channel_id: 'voz-1',
+      user_id: '1',
+      member: { user: { ...user('1', 'bot'), bot: true }, roles: [] },
+    });
+
+    // Vitória confirmada conclui "Vença 1 partida".
+    const d = say(JOAO, '!duelo <@200> CS2', [LUCAS]);
+    const challenge = await waitFor(() => replyTo(d)?.response);
+    react(LUCAS, challenge.id, '✅');
+    await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
+    const r = say(JOAO, '!resultado <@400>', [JOAO]);
+    const awaiting = await waitFor(() => replyTo(r)?.response);
+    react(LUCAS, awaiting.id, '✅');
+    await waitFor(() => announced('400').length === 3);
+
+    const m = say(JOAO, '!missoes');
+    const list = await waitFor(() => replyTo(m)?.body.embeds[0]);
+    expect(list.title).toBe('📜 Missões do dia');
+    expect(list.description.match(/pronta/g)).toHaveLength(3);
+
+    const c = say(JOAO, '!coletar');
+    const paid = await waitFor(() => replyTo(c)?.body.embeds[0]);
+    expect(paid.title).toBe('🪙 +110 FluxCoins');
+    // 110 das missões + 25 da vitória.
+    expect(paid.description).toContain('Saldo: **135**');
+    const again = say(JOAO, '!coletar');
+    expect((await waitFor(() => replyTo(again)?.body)).content).toMatch(/Nenhuma missão concluída/);
   });
 });

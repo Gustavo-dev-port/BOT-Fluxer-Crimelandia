@@ -7,6 +7,7 @@ import type { MessageCreateEvent } from '../fluxer/types.js';
 import { parseCommand } from '../utils/args.js';
 import { UserError } from '../types/domain.js';
 import { getChannelId } from '../services/channels.js';
+import { trackMessage } from '../services/notifications/missionTracker.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 const log = scoped('eventos');
@@ -17,6 +18,7 @@ const ANYWHERE = new Set(['setup', 'admin']);
 export async function onMessageCreate(client: FluxerClient, message: MessageCreateEvent) {
   if (message.guild_id !== client.guildId) return; // só o servidor configurado; ignora DMs
   if (message.author.bot || message.webhook_id) return;
+  void trackMessage(client, message);
 
   const parsed = parseCommand(message.content, config.prefix);
   if (!parsed) return;

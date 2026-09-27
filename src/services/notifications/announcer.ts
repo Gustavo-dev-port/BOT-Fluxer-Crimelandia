@@ -12,6 +12,7 @@ import { sendTo } from '../channels.js';
 import { clip, cmd, Colors, medal, mention, timeTag, versus } from '../../embeds/format.js';
 import { refreshTournamentMessage } from './tournamentAnnouncer.js';
 import { upsertPinnedMessage } from './pinnedMessage.js';
+import { trackMatch } from './missionTracker.js';
 import { errorMeta, scoped } from '../../utils/logger.js';
 
 const log = scoped('anúncios');
@@ -60,6 +61,7 @@ export async function afterMatchConfirmed(client: FluxerClient, result: Confirme
     await refreshTournamentMessage(client, result.tournament.tournamentId);
   }
   await updateScoreboard(client);
+  await trackMatch(client, result);
 }
 
 export async function announceDisputed(client: FluxerClient, match: MatchWithParticipants) {

@@ -6,6 +6,8 @@ import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
 import { announceSeasonEnd } from '../services/notifications/announcer.js';
 import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
+import { announceDailyMissions } from '../services/notifications/missionTracker.js';
+import { voicePresence } from '../services/voicePresence.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
@@ -56,6 +58,20 @@ export function startScheduler(client: FluxerClient) {
       await closeDueWeeklyEvents(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
     }),
+    opts,
+  );
+
+  // Missões diárias: 3 novas à meia-noite (fuso TIMEZONE).
+  cron.schedule(
+    '0 0 * * *',
+    safe('missões diárias', () => announceDailyMissions(client)),
+    opts,
+  );
+
+  // Minutos em voz contados a cada minuto (progresso em tempo real).
+  cron.schedule(
+    '* * * * *',
+    safe('minutos em voz', async () => voicePresence.flush()),
     opts,
   );
 

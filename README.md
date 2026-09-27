@@ -16,23 +16,24 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Conquistas** — medalhas desbloqueadas automaticamente
 - **Rivalidades** — `!rival` descobre quem vocês mais enfrentam, com histórico; `!rivalidades` mostra o Top 10 da comunidade
 - **Hall do Reino** — campeão, MVP da semana, mais ativo, maior sequência, mais vitórias e mais FluxCoins, fixado em `#🏰┃hall-do-reino` e atualizado a cada 10 min
+- **Missões diárias** — 3 missões novas à meia-noite (vencer partidas, tempo em voz, entrar em salas, mensagens, reações), com recompensa de 20 a 100 FluxCoins; `!missoes` e `!coletar`
 - **Perfil medieval** — classe, liga com barra de progresso, avatar e títulos de honra (👑 ⚔️ 🧙 🐺 🔥)
 
 > **Comandos de texto e reações.** O Fluxer não tem slash commands nem botões. Os comandos usam um prefixo (`!` por padrão) e as confirmações usam reações: ✅ aceita/confirma, ❌ recusa, ⚠️ contesta.
 
 ## Stack
 
-| Tecnologia              | Uso                                                                   |
-| ----------------------- | --------------------------------------------------------------------- |
-| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                     |
-| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                  |
-| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)            |
-| Prisma 6                | ORM e migrações                                                       |
-| node-cron               | Temporadas, expirações e evento semanal                               |
-| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta) |
-| Winston                 | Logs no console e em `logs/error.log` / `logs/combined.log`           |
-| ESLint + Prettier       | Qualidade e formatação do código                                      |
-| Docker                  | Hospedagem (bot + PostgreSQL)                                         |
+| Tecnologia              | Uso                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                                                                  |
+| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                                                               |
+| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)                                                         |
+| Prisma 6                | ORM e migrações                                                                                                    |
+| node-cron               | Temporadas, expirações e evento semanal                                                                            |
+| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta)                                              |
+| Winston                 | Logs no console, em `logs/error.log` / `logs/combined.log` e por módulo (`missions.log`, `voice.log`, `night.log`) |
+| ESLint + Prettier       | Qualidade e formatação do código                                                                                   |
+| Docker                  | Hospedagem (bot + PostgreSQL)                                                                                      |
 
 ## Instalação
 
@@ -196,6 +197,8 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!resgatar <item> [#cor \| apelido]`              | Resgata um item (`!resgatar cor-nick #ff8800`, `!resgatar apelido-especial Rei do Clutch`); `!comprar` também funciona |
 | `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil                                                                                               |
 | `!saldo`                                          | Saldo e últimas movimentações                                                                                          |
+| `!missoes`                                        | Suas 3 missões do dia, com barra de progresso                                                                          |
+| `!coletar`                                        | Coleta as FluxCoins das missões concluídas                                                                             |
 
 ### Administração
 
@@ -255,6 +258,8 @@ Em partidas de time, usa-se a média de rating de cada lado e todos recebem a me
 **FluxCoins** — vitória +25 · participação +10 · campeão (torneio ou temporada) +150 · evento especial (Night Fluxer) +50 para cada participante.
 
 **Loja** — títulos (Rei do Rush, Fantasma, Sniper, Senhor do Clutch, Tryhard), cor do nickname (7 dias), apelido especial ✨ (7 dias; o apelido anterior volta depois), cargo VIP temporário (7 dias, `SHOP_VIP_ROLE_ID`) e evento personalizado (permite criar um evento). Itens ficam em `src/services/rules/shop.ts`.
+
+**Missões diárias** — à meia-noite (fuso `TIMEZONE`) o bot sorteia 3 missões de tipos diferentes e anuncia em `#comandos`. O sorteio usa a data como semente, então reiniciar o bot não troca as missões. Tipos: ⚔️ vencer partidas, 🎮 jogar partidas, 🎙️ minutos em voz, 🚪 entrar em salas de voz, 💬 mensagens, 👍 reações; recompensa de 20 a 100 FluxCoins. O progresso conta na hora e o bot avisa em `#comandos` quando alguém conclui. Contra spam: mensagens contam uma a cada 15 s, com 3+ caracteres e sem comandos; cada reação conta uma vez por mensagem por dia. As recompensas ficam guardadas até o `!coletar`.
 
 **Hall do Reino** — 👑 campeão da última temporada encerrada (antes da primeira, o líder atual); ⭐ MVP da semana: mais vitórias nos últimos 7 dias; 🛡️ mais ativo: mais partidas nos últimos 30 dias; 🔥 maior sequência de vitórias em qualquer temporada; ⚔️ mais vitórias na carreira; 🪙 maior saldo de FluxCoins. Empates ficam com quem chegou primeiro.
 

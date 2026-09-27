@@ -11,6 +11,10 @@ import { computeCommunityRivalries, computeRivalries, HISTORY_SIZE } from '../sr
 import { tierProgress } from '../src/services/rules/tiers.js';
 import { addCoins } from '../src/services/economy.js';
 import { p, resetDb } from './helpers.js';
+import { generateDailyMissions, type MissionKind, MISSION_TYPES, MISSIONS_PER_DAY } from '../src/services/rules/missions.js';
+import { dateKeyIn } from '../src/utils/calendar.js';
+import { VoicePresence } from '../src/services/voicePresence.js';
+import { claimRewards, ensureDailyMissions, getPlayerMissions, recordProgress, todayKey } from '../src/services/missions.js';
 
 const day = (n: number) => new Date(2026, 0, n);
 
@@ -156,5 +160,116 @@ describe('Hall do Reino e perfil (banco)', () => {
     const community = await getCommunityRivalries();
     expect(community).toHaveLength(1);
     expect(community[0]).toMatchObject({ playerA: 'gustavo', playerB: 'lucas', total: 3, winsA: 2, winsB: 1 });
+  });
+});
+
+// ─── Etapa 6: missões diárias ───────────────────────────────────────────────
+
+describe('missões: regras', () => {
+  it('sorteio determinístico: 3 tipos diferentes, recompensas de 20 a 100', () => {
+    const a = generateDailyMissions('2026-09-28');
+    expect(a).toEqual(generateDailyMissions('2026-09-28'));
+    expect(a).toHaveLength(MISSIONS_PER_DAY);
+    expect(new Set(a.map((m) => m.kind)).size).toBe(3);
+    // Dias diferentes variam.
+    const days = Array.from({ length: 14 }, (_, i) => generateDailyMissions(`2026-10-${String(i + 1).padStart(2, '0')}`));
+    expect(new Set(days.map((d) => d.map((m) => m.kind).join())).size).toBeGreaterThan(3);
+    for (const t of MISSION_TYPES) for (const tier of t.tiers) expect(tier.reward).toBeGreaterThanOrEqual(20);
+    for (const t of MISSION_TYPES) for (const tier of t.tiers) expect(tier.reward).toBeLessThanOrEqual(100);
+  });
+  it('dia no fuso do servidor', () => {
+    expect(dateKeyIn(new Date('2026-09-28T02:00:00Z'), 'America/Sao_Paulo')).toBe('2026-09-27');
+    expect(dateKeyIn(new Date('2026-09-28T03:00:00Z'), 'America/Sao_Paulo')).toBe('2026-09-28');
+  });
+});
+
+describe('presença em voz', () => {
+  const st = (id: string, channel: string | null, bot = false) => ({
+    user_id: id,
+    channel_id: channel,
+    member: { user: { id, username: `u${id}`, bot } },
+  });
+  it('entradas, trocas de sala, minutos e contagem por sala; ignora bots e mudanças de mute', () => {
+    const v = new VoicePresence();
+    const joins: string[] = [];
+    const minutes: [string, number][] = [];
+    v.listen({ onJoin: (u, c) => joins.push(`${u.id}@${c}`), onMinutes: (u, m) => minutes.push([u.id, m]) });
+    const t0 = 1_000_000;
+    v.update(st('1', 'sala-a'), t0);
+    v.update(st('9', 'sala-a', true), t0);
+    v.update(st('1', 'sala-a'), t0 + 5_000); // só mute
+    expect(v.count('sala-a')).toBe(1);
+    v.flush(t0 + 90_000); // 1 min e meio: conta 1, guarda 30s
+    v.update(st('1', 'sala-b'), t0 + 150_000); // mais 1 min ao trocar
+    v.update(st('1', null), t0 + 200_000); // 50s: não completa minuto
+    expect(joins).toEqual(['1@sala-a', '1@sala-b']);
+    expect(minutes).toEqual([
+      ['1', 1],
+      ['1', 1],
+    ]);
+    expect(v.channelOf('1')).toBeNull();
+  });
+  it('reset (GUILD_CREATE): quem já estava não conta como entrada; quem sumiu sai', () => {
+    const v = new VoicePresence();
+    const joins: string[] = [];
+    const leaves: string[] = [];
+    v.listen({ onJoin: (u) => joins.push(u.id), onLeave: (u) => leaves.push(u.id) });
+    v.update(st('1', 'a'), 0);
+    v.reset([st('2', 'a'), st('3', 'b')], 1000);
+    expect(joins).toEqual(['1']);
+    expect(leaves).toEqual(['1']);
+    expect(v.members('a')).toEqual(['2']);
+    expect(v.count('b')).toBe(1);
+  });
+});
+
+describe('missões: banco', () => {
+  beforeEach(resetDb);
+  const now = new Date();
+  async function setMissions(...kinds: [MissionKind, number, number][]) {
+    const date = todayKey(now);
+    for (const [kind, target, reward] of kinds) await prisma.dailyMission.create({ data: { date, kind, target, reward } });
+  }
+
+  it('gera 3 missões por dia uma vez só', async () => {
+    const a = await ensureDailyMissions(now);
+    const b = await ensureDailyMissions(now);
+    expect(a).toHaveLength(3);
+    expect(b.map((m) => m.id)).toEqual(a.map((m) => m.id));
+  });
+
+  it('progresso limitado ao alvo, conclui uma vez, coleta paga uma vez', async () => {
+    await setMissions(['send_messages', 3, 20], ['win_duels', 1, 30], ['join_voice', 2, 30]);
+    const ref = p('gustavo');
+    expect(await recordProgress(ref, 'send_messages', 2, now)).toEqual([]);
+    const done = await recordProgress(ref, 'send_messages', 5, now);
+    expect(done.map((d) => d.mission.kind)).toEqual(['send_messages']);
+    expect(await recordProgress(ref, 'send_messages', 1, now)).toEqual([]);
+    // Tipo que não está no dia não faz nada.
+    expect(await recordProgress(ref, 'react_messages', 1, now)).toEqual([]);
+
+    const view = await getPlayerMissions('gustavo', now);
+    expect(view.find((v) => v.mission.kind === 'send_messages')).toMatchObject({ progress: 3, completed: true, claimed: false });
+    expect(view.find((v) => v.mission.kind === 'win_duels')).toMatchObject({ progress: 0, completed: false });
+
+    const first = await claimRewards('gustavo', now);
+    expect(first).toMatchObject({ total: 20, balance: 20 });
+    expect((await claimRewards('gustavo', now)).total).toBe(0);
+    const tx = await prisma.transaction.findMany({ where: { playerId: 'gustavo' } });
+    expect(tx.map((t) => [t.amount, t.reason])).toEqual([[20, 'Missão diária: 💬 Envie 3 mensagens no servidor']]);
+  });
+
+  it('eventos simultâneos do mesmo jogador somam certo', async () => {
+    await setMissions(['send_messages', 50, 50]);
+    await Promise.all(Array.from({ length: 10 }, () => recordProgress(p('lucas'), 'send_messages', 1, now)));
+    expect((await getPlayerMissions('lucas', now))[0].progress).toBe(10);
+  });
+});
+
+describe('missões: casos de borda', () => {
+  beforeEach(resetDb);
+  it('jogador só por ID que ainda não existe é ignorado (sem erro de chave estrangeira)', async () => {
+    await prisma.dailyMission.create({ data: { date: todayKey(), kind: 'react_messages', target: 1, reward: 20 } });
+    await expect(recordProgress('fantasma', 'react_messages')).resolves.toEqual([]);
   });
 });

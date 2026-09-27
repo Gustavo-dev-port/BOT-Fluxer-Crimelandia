@@ -8,6 +8,7 @@ import { aceitar, cancelar, confirmar, contestar, duelo, partidas, recusar, resu
 import { loja, resgatar, saldo, titulo } from './economia.js';
 import { perfil, rank, rival, rivalidades, top10 } from './ranking.js';
 import { hall } from './hall.js';
+import { coletar, missoes } from './missoes.js';
 import { gratis } from './gratis.js';
 import { promocoes } from './promocoes.js';
 import { time } from './time.js';
@@ -83,6 +84,8 @@ export const commands: Command[] = [
   resgatar,
   titulo,
   saldo,
+  missoes,
+  coletar,
   // Promoções
   promocoes,
   gratis,

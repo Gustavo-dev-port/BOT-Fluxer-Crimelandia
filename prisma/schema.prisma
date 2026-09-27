@@ -28,6 +28,7 @@ model Player {
   achievements PlayerAchievement[]
   tempRoles    TempRole[]
   tempNickname TempNickname?
+  missions     PlayerMission[]
 }
 
 model Season {
@@ -308,4 +309,37 @@ model FreeGame {
   updatedAt   DateTime  @updatedAt
 
   @@index([active, endsAt])
+}
+
+/// Missão do dia: 3 por dia, geradas à meia-noite (fuso TIMEZONE).
+model DailyMission {
+  id        Int      @id @default(autoincrement())
+  /// Dia no fuso do servidor, "AAAA-MM-DD"
+  date      String
+  /// Tipo da missão (src/services/rules/missions.ts), ex.: "win_duels"
+  kind      String
+  target    Int
+  reward    Int
+  createdAt DateTime @default(now())
+
+  players PlayerMission[]
+
+  @@unique([date, kind])
+  @@index([date])
+}
+
+/// Progresso de um jogador numa missão do dia.
+model PlayerMission {
+  id          Int       @id @default(autoincrement())
+  missionId   Int
+  playerId    String
+  progress    Int       @default(0)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  mission DailyMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  player  Player       @relation(fields: [playerId], references: [id])
+
+  @@unique([missionId, playerId])
+  @@index([playerId])
 }

@@ -104,6 +104,25 @@ export interface GuildReady {
   properties?: Guild;
   roles?: Role[];
   channels?: Channel[];
+  /** Quem está em voz nos canais que o bot vê (docs: guild ready object). */
+  voice_states?: VoiceState[];
+}
+
+/** https://docs.fluxer.app/gateway/events/#voice-state-object */
+export interface VoiceState {
+  guild_id?: Snowflake | null;
+  /** null = saiu da voz. */
+  channel_id: Snowflake | null;
+  user_id: Snowflake | null;
+  member?: GuildMember | null;
+  self_mute?: boolean;
+  self_deaf?: boolean;
+}
+
+/** PASSIVE_UPDATES (servidores com mais de 250 membros). */
+export interface PassiveUpdates {
+  guild_id: Snowflake;
+  voice_states?: VoiceState[];
 }
 
 /** https://docs.fluxer.app/http-api/messages/#rich-embed-object */
