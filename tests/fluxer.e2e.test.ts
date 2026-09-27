@@ -19,7 +19,13 @@ let mock: MockFluxer;
 let client: FluxerClient;
 let msgSeq = 1;
 
-const user = (id: string, name: string) => ({ id, username: name, global_name: null, discriminator: '0000', avatar: null });
+const user = (id: string, name: string) => ({
+  id,
+  username: name,
+  global_name: null,
+  discriminator: '0000',
+  avatar: null as string | null,
+});
 const GUSTAVO = user('100', 'gustavo');
 const LUCAS = user('200', 'lucas');
 const CURIOSO = user('300', 'curioso');
@@ -311,6 +317,11 @@ describe('comandos e reações', () => {
     const settings = await prisma.guildSettings.findUniqueOrThrow({ where: { guildId: GUILD_ID } });
     expect(settings).toMatchObject({ commandsChannelId: 'c-comandos', scoreboardChannelId: 'c-placar', eventChannelId: 'c-eventos' });
     expect(settings.championRoleId).toMatch(/^r/);
+    // #hall-do-reino não existia: é criado só leitura para @everyone.
+    const hallChannel = mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/channels$`)).find((c) => /hall-do-reino/.test(c.body.name));
+    expect(hallChannel!.body.name).toBe('🏰┃hall-do-reino');
+    expect(hallChannel!.body.permission_overwrites[0]).toMatchObject({ id: GUILD_ID, deny: expect.any(String) });
+    expect(settings.hallChannelId).toMatch(/^c\d+$/);
     mock.roles = mock.roles.filter((r) => r.id === GUILD_ID);
   });
 
@@ -445,5 +456,54 @@ describe('comandos e reações', () => {
     expect(mock.callsTo('PUT', new RegExp(`^/guilds/${GUILD_ID}/members/100/roles/9990001$`))).toHaveLength(1);
     expect(await prisma.tempRole.findFirstOrThrow({ where: { playerId: '100', roleId: '9990001' } })).toMatchObject({ deleteRole: false });
     delete process.env.SHOP_VIP_ROLE_ID;
+  });
+
+  it('v1.1: Hall do Reino fixado e atualizado, !hall, perfil medieval, !rival com histórico e !rivalidades', async () => {
+    const { acceptDuel, confirmResult, createDuel, reportResult } = await import('../src/services/matches.js');
+    const { updateHallOfFame } = await import('../src/services/notifications/hallAnnouncer.js');
+    const { guildSettings } = await import('../src/database/guildSettingsRepository.js');
+    for (const [w, l] of [
+      ['100', '200'],
+      ['200', '100'],
+      ['100', '200'],
+    ]) {
+      const m = await createDuel({ id: w, username: w }, { id: l, username: l }, 'CS2');
+      await acceptDuel(l, m.id);
+      await reportResult(w, w, m.id);
+      await confirmResult(l, m.id);
+    }
+
+    // Mensagem fixada no #hall-do-reino: cria e fixa na primeira vez, edita nas seguintes.
+    await guildSettings.setChannel(GUILD_ID, 'hall', 'c-hall');
+    await updateHallOfFame(client);
+    const posted = mock.callsTo('POST', /^\/channels\/c-hall\/messages$/);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].body.embeds[0].title).toBe('🏰 Hall do Reino');
+    expect(mock.callsTo('PUT', new RegExp(`^/channels/c-hall/pins/${posted[0].response.id}$`))).toHaveLength(1);
+    await updateHallOfFame(client);
+    expect(mock.callsTo('POST', /^\/channels\/c-hall\/messages$/)).toHaveLength(1);
+    expect(mock.callsTo('PATCH', new RegExp(`^/channels/c-hall/messages/${posted[0].response.id}$`))).toHaveLength(1);
+
+    const h = say(GUSTAVO, '!hall');
+    const hallReply = await waitFor(() => replyTo(h)?.body);
+    const mvp = hallReply.embeds[0].fields.find((f: { name: string }) => f.name.includes('MVP'));
+    expect(mvp.value).toContain('<@100>');
+
+    // Perfil com avatar (Media Proxy), classe, liga e títulos.
+    const withAvatar = { ...GUSTAVO, avatar: 'abc123' };
+    const pf = say(withAvatar, '!perfil');
+    const profile = await waitFor(() => replyTo(pf)?.body.embeds[0]);
+    expect(profile.thumbnail.url).toBe(`${mock.origin}/avatars/100/abc123.png?size=256`);
+    expect(profile.description).toMatch(/Recruta/);
+    expect(profile.fields.find((f: { name: string }) => f.name === 'Títulos').value).toMatch(/🔒 Gladiador — .* 3\/50/);
+
+    const rv = say(GUSTAVO, '!rival');
+    const rivalEmbed = await waitFor(() => replyTo(rv)?.body.embeds[0]);
+    expect(rivalEmbed.fields[0].name).toBe('Histórico');
+    expect(rivalEmbed.fields[0].value.split('\n')).toHaveLength(3);
+
+    const top = say(GUSTAVO, '!rivalidades');
+    const topEmbed = await waitFor(() => replyTo(top)?.body.embeds[0]);
+    expect(topEmbed.description).toContain('<@100> **2** × **1** <@200> — 3 duelos');
   });
 });

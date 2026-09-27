@@ -22,6 +22,7 @@ export class FluxerClient {
     token: string,
     readonly guildId: Snowflake,
     readonly apiPublicUrl: string,
+    readonly mediaUrl: string,
   ) {
     this.gateway = new Gateway({ url: gatewayUrl, token, ignoredEvents: ['TYPING_START', 'PRESENCE_UPDATE'] });
     this.gateway.on('ready', (user) => (this.user = user));
@@ -32,7 +33,7 @@ export class FluxerClient {
   static async create(instanceUrl: string, token: string, guildId: Snowflake) {
     const endpoints = await discoverInstance(instanceUrl);
     const rest = new RestClient(endpoints.api_public, token);
-    return new FluxerClient(rest, endpoints.gateway, token, guildId, endpoints.api_public);
+    return new FluxerClient(rest, endpoints.gateway, token, guildId, endpoints.api_public, endpoints.media);
   }
 
   /**
@@ -46,6 +47,12 @@ export class FluxerClient {
     url.searchParams.set('permissions', permissions.toString());
     url.searchParams.set('guild_id', this.guildId);
     return url.toString();
+  }
+
+  /** Avatar do usuário pelo Media Proxy (docs: GET /avatars/{user_id}/{hash}.{ext}); null se não tiver. */
+  avatarUrl(user: Pick<User, 'id' | 'avatar'>, size = 256): string | null {
+    if (!user.avatar) return null;
+    return `${this.mediaUrl.replace(/\/+$/, '')}/avatars/${user.id}/${user.avatar}.png?size=${size}`;
   }
 
   get botId(): Snowflake | null {

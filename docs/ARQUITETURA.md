@@ -13,23 +13,25 @@ src/
 │   └── reactions.ts     MESSAGE_REACTION_ADD/REMOVE → ✅/❌/⚠️ nos prompts de partida e ✅ nas inscrições
 │
 ├── services/        Regras de negócio
-│   ├── rules/           lógica pura, sem banco nem API: elo, tiers, bracket, rivalry, achievements, shop
+│   ├── rules/           lógica pura, sem banco nem API: elo, tiers, bracket, rivalry, achievements, shop, honors (títulos e classe)
 │   ├── matches.ts       ciclo de vida do duelo: desafio → aceite → resultado → confirmação (ELO, pontos, moedas, conquistas, duração)
 │   ├── tournaments.ts   eventos/campeonatos: inscrições, chave, avanço de vencedores, campeão
 │   ├── seasons.ts       temporada mensal: ativa, encerramento, reset
+│   ├── hallOfFame.ts    Hall do Reino: campeão, MVP da semana, mais ativo, maior sequência, mais vitórias, mais FluxCoins
 │   ├── ranking.ts, profile.ts, teams.ts, games.ts, shop.ts, economy.ts, achievements.ts, players.ts, settings.ts
 │   ├── promotions/      adaptadores por loja (steam, epic, gog, humble, itad) + promotionService
 │   ├── freeGames/       fontes (epic, itadGiveaways) + freeGameService
 │   ├── notifications/   o que fala com o Fluxer: announcer (#partidas, #placar, fim de temporada, prompts de reação),
-│   │                    duelActions, tournamentAnnouncer, promotionPublisher, freeGamePublisher
+│   │                    duelActions, tournamentAnnouncer, promotionPublisher, freeGamePublisher, hallAnnouncer,
+│   │                    pinnedMessage (mensagem fixada sempre atualizada: #placar e #hall-do-reino)
 │   └── channels.ts      canal configurado (GuildSettings) ou encontrado pelo nome
 │
 ├── database/        Acesso ao banco (Prisma)
 │   ├── client.ts        PrismaClient e transaction()
 │   └── *Repository.ts   GuildSettingsRepository, PromotionRepository, FreeGameRepository
 │
-├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, format (menções, datas, moedas)
-├── schedulers/      Tarefas agendadas: manutenção (5 min), evento semanal, promoções (30 min), jogos grátis (1 h)
+├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, hallEmbed, format (menções, datas, barras de progresso, paleta)
+├── schedulers/      Tarefas agendadas: manutenção (5 min), Hall do Reino (10 min), evento semanal, promoções (30 min), jogos grátis (1 h)
 ├── utils/           logger (Winston), http (fetch com tempo limite e logs sem credenciais), args (parsing), calendar (fuso horário)
 ├── types/           domain.ts: status, formatos e UserError
 │
@@ -67,7 +69,7 @@ src/
 
 | Tabela                                                | Para quê                                                                                    |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GuildSettings`                                       | Canais, cargos e idioma por servidor (`!config`)                                            |
+| `GuildSettings`                                       | Canais (inclusive `hallChannelId`), cargos e idioma por servidor (`!config`)                |
 | `Player`                                              | Jogador; saldo de FluxCoins, título equipado                                                |
 | `Transaction`                                         | Extrato da economia (ganhos e gastos de FluxCoins)                                          |
 | `Season`, `PlayerSeasonStats`                         | Temporadas mensais e estatísticas por temporada (histórico mantido)                         |

@@ -1,12 +1,13 @@
 import { scoreboardEmbed } from '../embeds/matchEmbeds.js';
-import { Colors, formatDuration, medal, mention, signed, timeTag } from '../embeds/format.js';
+import { Colors, formatDuration, medal, mention, progressBar, signed, timeTag } from '../embeds/format.js';
 import { config } from '../config.js';
 import { prisma } from '../database/client.js';
 import type { Embed } from '../fluxer/types.js';
 import { relativeDay } from '../services/rules/rivalry.js';
-import { tierFor } from '../services/rules/tiers.js';
+import { tierFor, tierProgress } from '../services/rules/tiers.js';
+import { honorStatus, playerClass } from '../services/rules/honors.js';
 import { UserError } from '../types/domain.js';
-import { getProfile, getRivalries } from '../services/profile.js';
+import { getCommunityRivalries, getProfile, getRivalries } from '../services/profile.js';
 import { getRanking, type RankingMode, rankingValue } from '../services/ranking.js';
 import { getActiveSeason } from '../services/seasons.js';
 import type { Command } from './types.js';
@@ -65,25 +66,34 @@ export const perfil: Command = {
   aliases: ['stats', 'p'],
   category: 'Ranking',
   usage: '[@jogador]',
-  description: 'Estatísticas de um jogador',
+  description: 'Perfil medieval: classe, liga, títulos, conquistas e estatísticas',
   async execute(ctx) {
     const user = (await ctx.mentionedUsers())[0] ?? ctx.author;
     const profile = await getProfile(user.id);
     if (!profile) throw new UserError(`${mention(user.id)} ainda não jogou nenhuma partida.`);
-    const { player, stats, position, season } = profile;
+    const { player, stats, position, season, honors } = profile;
     const tier = tierFor(stats.rating);
+    const progress = tierProgress(stats.rating);
+    const klass = playerClass(honors);
+    const titles = honorStatus(honors);
 
+    const league = progress.next
+      ? `${progressBar(progress.percent, 100)} faltam **${progress.remaining}** para ${progress.next}`
+      : `${progressBar(1, 1)} topo do reino`;
     const header = [
+      '━━━━━━━━ ⚜️ ━━━━━━━━',
       player.equippedTitle ? `🎖️ *${player.equippedTitle}*` : null,
+      `${klass.emoji} **${klass.name}** — _${klass.description}_`,
       `${tier.emoji} **${tier.label}** · ${stats.rating} ELO`,
+      league,
       position ? `${medal(position)} ${position}º lugar da Temporada ${pad(season.number)}` : '_Sem colocação nesta temporada_',
     ]
       .filter(Boolean)
       .join('\n');
 
     const embed: Embed = {
-      color: Colors.primary,
-      author: { name: player.username },
+      color: Colors.royalGold,
+      title: `⚔️ ${player.username}`,
       description: header,
       fields: [
         {
@@ -92,7 +102,7 @@ export const perfil: Command = {
           inline: true,
         },
         { name: 'Derrotas', value: `**${stats.losses}**`, inline: true },
-        { name: 'Win rate', value: `**${profile.winRate}%**`, inline: true },
+        { name: 'Win rate', value: `**${profile.winRate}%**\n${progressBar(profile.winRate, 100)}`, inline: true },
         {
           name: 'Sequência',
           value: `**${stats.streak}** vitórias${stats.bestStreak ? ` (recorde ${stats.bestStreak})` : ''}`,
@@ -100,6 +110,16 @@ export const perfil: Command = {
         },
         { name: 'Pontos', value: `**${stats.points}**`, inline: true },
         { name: 'FluxCoins', value: `🪙 **${player.coins}**`, inline: true },
+        {
+          name: 'Títulos',
+          value: titles
+            .map((t) =>
+              t.earned
+                ? `${t.title.emoji} **${t.title.name}**`
+                : `🔒 ${t.title.name} — ${progressBar(t.current, t.target, 8)} ${t.current}/${t.target} · _${t.title.requirement}_`,
+            )
+            .join('\n'),
+        },
         { name: 'Jogos favoritos', value: profile.favoriteGames.length ? profile.favoriteGames.join(' · ') : '—' },
         {
           name: 'Carreira',
@@ -109,12 +129,16 @@ export const perfil: Command = {
         },
       ],
     };
+    const avatar = ctx.client.avatarUrl(user);
+    if (avatar) embed.thumbnail = { url: avatar };
     if (profile.achievements.length) {
       embed.fields!.push({ name: 'Conquistas', value: profile.achievements.map((a) => `${a.emoji} ${a.name}`).join(' · ') });
     }
     await ctx.reply({ ...quiet, embeds: [embed] });
   },
 };
+
+const winRateOf = (wins: number, total: number) => (total ? Math.round((wins / total) * 100) : 0);
 
 export const rival: Command = {
   name: 'rival',
@@ -143,15 +167,23 @@ export const rival: Command = {
       : `${me.id === ctx.author.id ? 'Sua maior rivalidade' : `A maior rivalidade de ${mention(me.id)}`} é com ${mention(r.opponentId)}\n\n`;
 
     const embed: Embed = {
-      color: Colors.danger,
+      color: Colors.wine,
       title: against ? 'Confronto direto ⚔️' : 'Maior rivalidade ⚔️',
       description:
         intro +
         `**${r.total}** partidas\n` +
-        `${mention(me.id)}: **${r.wins}** vitórias\n` +
-        `${mention(r.opponentId)}: **${r.losses}** vitórias\n` +
+        `${mention(me.id)}: **${r.wins}** vitórias (${winRateOf(r.wins, r.total)}%)\n` +
+        `${mention(r.opponentId)}: **${r.losses}** vitórias (${winRateOf(r.losses, r.total)}%)\n` +
         `${leader}\n\n` +
         `Último confronto: ${relativeDay(r.lastPlayedAt)}`,
+      fields: [
+        {
+          name: 'Histórico',
+          value: r.history
+            .map((h) => `${h.won ? '✅' : '❌'} ${h.won ? mention(me.id) : mention(r.opponentId)} venceu · ${relativeDay(h.playedAt)}`)
+            .join('\n'),
+        },
+      ],
     };
     const others = against
       ? ''
@@ -159,7 +191,33 @@ export const rival: Command = {
           .slice(1, 4)
           .map((x) => `${mention(x.opponentId)} — ${x.total} partidas (${x.wins}×${x.losses})`)
           .join('\n');
-    if (others) embed.fields = [{ name: 'Outras rivalidades', value: others }];
+    if (others) embed.fields!.push({ name: 'Outras rivalidades', value: others });
     await ctx.reply({ ...quiet, embeds: [embed] });
+  },
+};
+
+export const rivalidades: Command = {
+  name: 'rivalidades',
+  aliases: ['rivais', 'top-rivalidades'],
+  category: 'Ranking',
+  usage: '',
+  description: 'As 10 maiores rivalidades da comunidade',
+  details: ['Conta os duelos 1v1 confirmados de todas as temporadas; cada par precisa de ao menos 2 duelos.'],
+  async execute(ctx) {
+    const top = await getCommunityRivalries(10);
+    const lines = top.map(
+      (p, i) =>
+        `${medal(i + 1)} ${mention(p.playerA)} **${p.winsA}** × **${p.winsB}** ${mention(p.playerB)} — ${p.total} duelos · último ${relativeDay(p.lastPlayedAt)}`,
+    );
+    await ctx.reply({
+      ...quiet,
+      embeds: [
+        {
+          color: Colors.wine,
+          title: '⚔️ Rivalidades do Reino',
+          description: lines.length ? lines.join('\n') : '_Nenhuma rivalidade ainda: são precisos 2 duelos entre os mesmos jogadores._',
+        },
+      ],
+    });
   },
 };

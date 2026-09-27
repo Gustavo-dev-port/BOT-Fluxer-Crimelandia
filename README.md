@@ -14,7 +14,9 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Jogos grátis** — Epic, giveaways da Steam/GOG e free weekends a cada hora, com `!gratis`
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
 - **Conquistas** — medalhas desbloqueadas automaticamente
-- **Rivalidades** — `!rival` descobre quem vocês mais enfrentam
+- **Rivalidades** — `!rival` descobre quem vocês mais enfrentam, com histórico; `!rivalidades` mostra o Top 10 da comunidade
+- **Hall do Reino** — campeão, MVP da semana, mais ativo, maior sequência, mais vitórias e mais FluxCoins, fixado em `#🏰┃hall-do-reino` e atualizado a cada 10 min
+- **Perfil medieval** — classe, liga com barra de progresso, avatar e títulos de honra (👑 ⚔️ 🧙 🐺 🔥)
 
 > **Comandos de texto e reações.** O Fluxer não tem slash commands nem botões. Os comandos usam um prefixo (`!` por padrão) e as confirmações usam reações: ✅ aceita/confirma, ❌ recusa, ⚠️ contesta.
 
@@ -54,7 +56,7 @@ npm run dev                  # aplica as migrações (SQLite em prisma/fluxer.db
 
 No Windows (PowerShell), troque `cp` por `Copy-Item .env.example .env`.
 
-No servidor, rode **`!setup`** (admin): ele cria os canais `#comandos`, `#placar`, `#partidas` e `#eventos` e o cargo **🏆 Campeão do Reino**. Depois ajuste o que quiser com **`!config`** e veja todos os comandos com **`!ajuda`**.
+No servidor, rode **`!setup`** (admin): ele cria os canais `#comandos`, `#placar`, `#partidas`, `#eventos`, `#promocoes`, `#jogos-gratis` e `#hall-do-reino` e o cargo **🏆 Campeão do Reino**. Depois ajuste o que quiser com **`!config`** e veja todos os comandos com **`!ajuda`**.
 
 > ⚠️ Valores reais (token, senhas) vão **só no `.env`**, que o git ignora. Nunca no `.env.example`.
 
@@ -134,13 +136,14 @@ Cada postagem tem imagem, nome, descrição, plataforma, data limite e o link **
 
 ## Canais
 
-| Canal           | Função                                                                    |
-| --------------- | ------------------------------------------------------------------------- |
-| `#comandos`     | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
-| `#placar`       | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
-| `#partidas`     | Histórico das disputas confirmadas e das disputas contestadas             |
-| `#eventos`      | Campeonatos, evento semanal e fim de temporada                            |
-| `#💸┃promocoes` | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
+| Canal               | Função                                                                    |
+| ------------------- | ------------------------------------------------------------------------- |
+| `#comandos`         | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
+| `#placar`           | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
+| `#partidas`         | Histórico das disputas confirmadas e das disputas contestadas             |
+| `#eventos`          | Campeonatos, evento semanal e fim de temporada                            |
+| `#💸┃promocoes`     | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
+| `#🏰┃hall-do-reino` | Hall do Reino — mensagem fixada, atualizada a cada 10 min (só leitura)    |
 
 Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 
@@ -163,12 +166,14 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 
 ### Ranking e perfil
 
-| Comando                           | Função                                                                                              |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`)                              |
-| `!top10`                          | Os 10 melhores jogadores                                                                            |
-| `!perfil [@jogador]`              | Liga, colocação, vitórias (+ na semana), derrotas, win rate, sequência, jogos favoritos, conquistas |
-| `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto                                                                |
+| Comando                           | Função                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`)                                                                                                        |
+| `!top10`                          | Os 10 melhores jogadores                                                                                                                                                      |
+| `!perfil [@jogador]`              | Perfil medieval: avatar, classe, liga com barra de progresso, colocação, vitórias (+ na semana), derrotas, win rate, sequência, títulos de honra, jogos favoritos, conquistas |
+| `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto, com taxa de vitória e histórico dos últimos 5 duelos                                                                                    |
+| `!rivalidades`                    | Top 10 rivalidades da comunidade (pares com 2+ duelos 1v1)                                                                                                                    |
+| `!hall`                           | Hall do Reino                                                                                                                                                                 |
 
 ### Times e eventos
 
@@ -196,20 +201,20 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 
 Admin = quem tem **Gerenciar Servidor** (ou Administrador, ou é o dono).
 
-| Comando                                                                             | Função                                        |
-| ----------------------------------------------------------------------------------- | --------------------------------------------- |
-| `!setup`                                                                            | Cria/configura os canais e o cargo de campeão |
-| `!config`                                                                           | Mostra a configuração do servidor             |
-| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos> #canal` | Define um canal                               |
-| `!config <promo-role\|campeao-role> @cargo`                                         | Define um cargo                               |
-| `!config idioma pt-BR` · `!config <opção> limpar`                                   | Idioma / remove um valor                      |
-| `!temporada [encerrar]`                                                             | Informações / encerra a temporada agora       |
-| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                              | Jogos disponíveis para disputas               |
-| `!admin resultado #partida @vencedor`                                               | Resolve disputas                              |
-| `!admin cancelar #partida`                                                          | Cancela uma partida não confirmada            |
-| `!admin moedas @jogador <quantidade> [motivo]`                                      | Ajusta FluxCoins                              |
-| `!admin placar`                                                                     | Recria a mensagem do placar                   |
-| `!admin evento-semanal`                                                             | Abre o evento semanal agora                   |
+| Comando                                                                                   | Função                                        |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `!setup`                                                                                  | Cria/configura os canais e o cargo de campeão |
+| `!config`                                                                                 | Mostra a configuração do servidor             |
+| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos\|hall> #canal` | Define um canal                               |
+| `!config <promo-role\|campeao-role> @cargo`                                               | Define um cargo                               |
+| `!config idioma pt-BR` · `!config <opção> limpar`                                         | Idioma / remove um valor                      |
+| `!temporada [encerrar]`                                                                   | Informações / encerra a temporada agora       |
+| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                                    | Jogos disponíveis para disputas               |
+| `!admin resultado #partida @vencedor`                                                     | Resolve disputas                              |
+| `!admin cancelar #partida`                                                                | Cancela uma partida não confirmada            |
+| `!admin moedas @jogador <quantidade> [motivo]`                                            | Ajusta FluxCoins                              |
+| `!admin placar`                                                                           | Recria a mensagem do placar                   |
+| `!admin evento-semanal`                                                                   | Abre o evento semanal agora                   |
 
 ## Como funciona um duelo
 
@@ -250,6 +255,10 @@ Em partidas de time, usa-se a média de rating de cada lado e todos recebem a me
 **FluxCoins** — vitória +25 · participação +10 · campeão (torneio ou temporada) +150 · evento especial (Night Fluxer) +50 para cada participante.
 
 **Loja** — títulos (Rei do Rush, Fantasma, Sniper, Senhor do Clutch, Tryhard), cor do nickname (7 dias), apelido especial ✨ (7 dias; o apelido anterior volta depois), cargo VIP temporário (7 dias, `SHOP_VIP_ROLE_ID`) e evento personalizado (permite criar um evento). Itens ficam em `src/services/rules/shop.ts`.
+
+**Hall do Reino** — 👑 campeão da última temporada encerrada (antes da primeira, o líder atual); ⭐ MVP da semana: mais vitórias nos últimos 7 dias; 🛡️ mais ativo: mais partidas nos últimos 30 dias; 🔥 maior sequência de vitórias em qualquer temporada; ⚔️ mais vitórias na carreira; 🪙 maior saldo de FluxCoins. Empates ficam com quem chegou primeiro.
+
+**Perfil medieval** — a classe vem do estilo de jogo: 🪖 Recruta (menos de 5 partidas), 🧠 Estrategista (vence 60%+), 🪓 Berserker (30+ partidas e menos de 50% de vitórias), 🛡️ Cavaleiro (o resto). Títulos de honra, calculados na hora: 👑 Campeão do Reino (vença uma temporada), ⚔️ Gladiador (50 partidas), 🧙 Arquimago (1600 de rating), 🐺 Lobo Solitário (25 vitórias em duelos 1v1), 🔥 Imparável (10 vitórias seguidas). Os que faltam aparecem com 🔒 e uma barra de progresso.
 
 **Partidas** — o banco registra vencedor, perdedor, jogo, duração e data. A duração vem do `!resultado` (ex.: `25min`, `1h20`) ou é medida do aceite até o resultado; o `!perfil` mostra a média.
 

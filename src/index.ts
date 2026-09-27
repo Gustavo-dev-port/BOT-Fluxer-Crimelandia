@@ -1,5 +1,6 @@
 import { updateScoreboard } from './services/notifications/announcer.js';
 import { onMessageCreate } from './events/messageCreate.js';
+import { updateHallOfFame } from './services/notifications/hallAnnouncer.js';
 import { onReaction } from './events/reactions.js';
 import { startScheduler } from './schedulers/maintenanceScheduler.js';
 import { startFreeGameScheduler } from './schedulers/freeGameScheduler.js';
@@ -29,6 +30,7 @@ client.gateway.on('ready', async (user) => {
   const season = await getActiveSeason();
   log.info(`Temporada ${season.number} ativa até ${season.endsAt.toISOString()}`);
   await updateScoreboard(client).catch((err: unknown) => log.error('falha ao atualizar o placar', errorMeta(err)));
+  await updateHallOfFame(client).catch((err: unknown) => log.error('falha ao atualizar o Hall do Reino', errorMeta(err)));
   startScheduler(client);
   startPromotionScheduler(client);
   startFreeGameScheduler(client);

@@ -255,6 +255,7 @@ model GuildSettings {
   promoChannelId      String?
   freeGamesChannelId  String?
   musicChannelId      String?
+  hallChannelId       String?
   promoRoleId         String?
   championRoleId      String?
   language            String   @default("pt-BR")

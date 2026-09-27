@@ -142,6 +142,7 @@ export const config = {
     promo: 'promocoes',
     freeGames: 'jogos-gratis',
     music: 'musica',
+    hall: 'hall-do-reino',
   },
 
   defaultGames: ['Valorant', 'CS2', 'League of Legends', 'Fortnite', 'Rocket League', 'EA FC', 'Livre'],

@@ -5,6 +5,7 @@ import { prisma } from '../database/client.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
 import { announceSeasonEnd } from '../services/notifications/announcer.js';
+import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
@@ -55,6 +56,13 @@ export function startScheduler(client: FluxerClient) {
       await closeDueWeeklyEvents(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
     }),
+    opts,
+  );
+
+  // Hall do Reino a cada 10 minutos.
+  cron.schedule(
+    '*/10 * * * *',
+    safe('hall do reino', () => updateHallOfFame(client)),
     opts,
   );
 

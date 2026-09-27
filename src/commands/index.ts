@@ -6,7 +6,8 @@ import { campeonato, inscrever } from './campeonato.js';
 import { configCommand } from './config.js';
 import { aceitar, cancelar, confirmar, contestar, duelo, partidas, recusar, resultado } from './duelo.js';
 import { loja, resgatar, saldo, titulo } from './economia.js';
-import { perfil, rank, rival, top10 } from './ranking.js';
+import { perfil, rank, rival, rivalidades, top10 } from './ranking.js';
+import { hall } from './hall.js';
 import { gratis } from './gratis.js';
 import { promocoes } from './promocoes.js';
 import { time } from './time.js';
@@ -71,6 +72,8 @@ export const commands: Command[] = [
   top10,
   perfil,
   rival,
+  rivalidades,
+  hall,
   // Times e campeonatos
   time,
   campeonato,

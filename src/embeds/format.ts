@@ -11,6 +11,11 @@ export const Colors = {
   danger: 0xef4444,
   info: 0x3b82f6,
   gold: 0xfacc15,
+  // Paleta medieval (Hall do Reino, perfil, rivalidades)
+  royalGold: 0xd4af37,
+  wine: 0x8b1e3f,
+  forest: 0x2e8b57,
+  graphite: 0x0e1116,
 } as const;
 
 export const MEDALS = ['🥇', '🥈', '🥉'];
@@ -70,3 +75,10 @@ export const cmd = (name: string) => `**${config.prefix}${name}**`;
 
 /** Corta texto para caber nos limites de embed. */
 export const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+/** Barra de progresso em texto: ▰▰▰▱▱▱▱▱▱▱ */
+export function progressBar(current: number, target: number, width = 10): string {
+  const ratio = target <= 0 ? 1 : Math.max(0, Math.min(1, current / target));
+  const filled = Math.round(ratio * width);
+  return '▰'.repeat(filled) + '▱'.repeat(width - filled);
+}
