@@ -11,6 +11,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
 - **Eventos semanais** — toda sexta às 20h: _Night Fluxer_, inscrição reagindo com ✅
 - **Promoções** — Steam, Epic, GOG, Humble, Nuuvem e Green Man Gaming a cada 30 min, sem repetir
+- **Jogos grátis** — Epic, giveaways da Steam/GOG e free weekends a cada hora, com `!gratis`
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
 - **Conquistas** — medalhas desbloqueadas automaticamente
 - **Rivalidades** — `!rival` descobre quem vocês mais enfrentam
@@ -116,6 +117,20 @@ Regras:
 Comandos: `!promocoes` lista as melhores promoções ativas; `!promocoes atualizar` (admin) busca agora e mostra um resumo.
 
 As lojas não têm contrato de API estável. Se uma delas começar a falhar, o log (`logs/combined.log`) mostra qual. Dá para desligá-la tirando o nome de `PROMO_SOURCES`, ou trocá-la pela IsThereAnyDeal (adicione o nome da loja em `ITAD_SHOPS`, ex.: `Steam`).
+
+## Jogos grátis
+
+A cada hora o bot procura jogos grátis e publica os novos no canal de jogos grátis (`!setup` cria o `#🎁┃jogos-gratis`, ou use `!config jogos-gratis #canal`).
+
+| Fonte              | O que traz                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| Epic Games         | Os jogos grátis da semana (endpoint público `freeGamesPromotions`), com descrição           |
+| Steam e GOG        | Giveaways pela API oficial da IsThereAnyDeal (`/giveaways/v1`, usa a mesma `ITAD_API_KEY`)  |
+| Steam Free Weekend | Giveaways da ITAD com "free weekend" no título ou na nota aparecem como **🎮 FREE WEEKEND** |
+
+Cada postagem tem imagem, nome, descrição, plataforma, data limite e o link **Resgatar**. O mesmo jogo não é postado duas vezes. Jogos vencidos ou que ainda não começaram são ignorados, e os que passam do prazo saem da lista.
+
+`!gratis` lista todos os jogos grátis ativos. `!gratis atualizar` (admin) busca na hora.
 
 ## Canais
 

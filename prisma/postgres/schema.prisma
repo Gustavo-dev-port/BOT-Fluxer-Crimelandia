@@ -273,3 +273,26 @@ model Promotion {
 
   @@index([active, discount])
 }
+
+/// Jogo gratuito (Epic, giveaways da Steam/GOG, free weekends). O ID evita repostar.
+model FreeGame {
+  /// "<fonte>:<id>", ex.: "epic:abc123", "itad:16541"
+  id          String    @id
+  title       String
+  platform    String
+  /// "free" (grátis para resgatar) ou "free-weekend" (jogar grátis por tempo limitado)
+  kind        String    @default("free")
+  description String?
+  image       String?
+  url         String
+  startsAt    DateTime?
+  endsAt      DateTime?
+  active      Boolean   @default(true)
+  channelId   String?
+  messageId   String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([active, endsAt])
+}

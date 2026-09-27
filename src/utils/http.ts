@@ -1,11 +1,18 @@
 /** GET/POST JSON com tempo limite, usado pelos adaptadores de loja. */
 
+/** Esconde credenciais em URLs antes de irem para mensagens de erro e logs. */
+export function redactUrl(url: string): string {
+  return url.replace(/([?&](?:key|api_key|apikey|token)=)[^&]*/gi, '$1***');
+}
+
 export class HttpError extends Error {
+  readonly url: string;
   constructor(
     readonly status: number,
-    readonly url: string,
+    url: string,
   ) {
-    super(`HTTP ${status} em ${url}`);
+    super(`HTTP ${status} em ${redactUrl(url)}`);
+    this.url = redactUrl(url);
   }
 }
 

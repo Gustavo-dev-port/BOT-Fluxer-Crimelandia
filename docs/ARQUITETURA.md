@@ -39,13 +39,16 @@ src/
 │
 ├── commands/       Comandos de texto (`!duelo`…), um arquivo por grupo; `index.ts` tem o registro e o `!ajuda`
 ├── lib/args.ts     parsing dos comandos: prefixo, aspas, menções `<@id>`, `#partida`
-├── database/       Repositórios: GuildSettingsRepository (canais/cargos), PromotionRepository
+├── database/       Repositórios: GuildSettingsRepository (canais/cargos), PromotionRepository, FreeGameRepository
 ├── services/promotions/
 │   ├── adapters/       um adaptador por loja (steam, epic, gog, humble, itad), todos devolvem PromotionOffer
 │   ├── promotionService.ts  regras: desconto mínimo, sem duplicatas, atualizar preço, limite por rodada
-│   └── http.ts         fetch com tempo limite e leitura defensiva de JSON
-├── embeds/         embeds reutilizáveis (promotionEmbed)
-├── schedulers/     agendadores de módulos (promotionScheduler: a cada 30 min)
+├── services/freeGames/
+│   ├── sources/        epic (freeGamesPromotions) e itadGiveaways (Steam/GOG, free weekends)
+│   └── freeGameService.ts   regras: sem duplicatas, só no prazo, encerra vencidos
+├── utils/http.ts   fetch com tempo limite, leitura defensiva de JSON e URLs sem credenciais nos logs
+├── embeds/         embeds reutilizáveis (promotionEmbed, freeGameEmbed)
+├── schedulers/     agendadores de módulos (promoções a cada 30 min, jogos grátis a cada hora)
 ├── utils/logger.ts Winston: console + logs/error.log + logs/combined.log
 ├── config.ts       Variáveis de ambiente e constantes
 ├── db.ts           PrismaClient

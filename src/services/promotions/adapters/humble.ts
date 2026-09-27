@@ -4,7 +4,7 @@
  * → results[]: machine_name, human_name, human_url, full_price e current_price
  *   ({amount, currency} ou [amount, currency]), large_capsule/featured_image, sale_end (Unix).
  */
-import { asArray, discountFrom, fetchJson, isObject, num, str, toCents, toDate } from '../http.js';
+import { asArray, discountFrom, fetchJson, isObject, num, str, toCents, toDate } from '../../../utils/http.js';
 import type { PromotionAdapter, PromotionOffer } from '../types.js';
 
 export class HumbleAdapter implements PromotionAdapter {

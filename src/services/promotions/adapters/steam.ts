@@ -4,7 +4,7 @@
  * → specials.items[]: id, name, discount_percent, original_price e final_price
  *   (em centavos), currency, large_capsule_image/header_image, discount_expiration (Unix).
  */
-import { asArray, fetchJson, isObject, num, str, toDate } from '../http.js';
+import { asArray, fetchJson, isObject, num, str, toDate } from '../../../utils/http.js';
 import type { PromotionAdapter, PromotionOffer } from '../types.js';
 
 export class SteamAdapter implements PromotionAdapter {

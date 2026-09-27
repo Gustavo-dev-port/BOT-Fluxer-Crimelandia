@@ -23,11 +23,13 @@ const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
   matches: 'Histórico das disputas',
   events: 'Inscrição para campeonatos',
   promo: 'Promoções de jogos com 40%+ de desconto (atualizado a cada 30 min)',
+  freeGames: 'Jogos grátis da Epic, Steam e GOG (atualizado a cada hora)',
 };
 
 /** Nomes com emoji usados ao criar; se o Fluxer recusar, cria com o nome simples. */
 const DECORATED_NAMES: Partial<Record<ChannelKey, string>> = {
   promo: '💸┃promocoes',
+  freeGames: '🎁┃jogos-gratis',
 };
 
 export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';
@@ -36,7 +38,7 @@ export const setup: Command = {
   name: 'setup',
   category: 'Administração',
   usage: '',
-  description: 'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes) e o cargo de campeão',
+  description: 'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes, #jogos-gratis) e o cargo de campeão',
   adminOnly: true,
   async execute(ctx) {
     const { client } = ctx;

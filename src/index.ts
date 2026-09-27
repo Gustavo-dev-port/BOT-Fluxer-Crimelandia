@@ -1,6 +1,7 @@
 import { updateScoreboard } from './bot/announcer.js';
 import { onMessageCreate, onReaction } from './bot/events.js';
 import { startScheduler } from './bot/scheduler.js';
+import { startFreeGameScheduler } from './schedulers/freeGameScheduler.js';
 import { startPromotionScheduler } from './schedulers/promotionScheduler.js';
 import { config } from './config.js';
 import { prisma } from './db.js';
@@ -29,6 +30,7 @@ client.gateway.on('ready', async (user) => {
   await updateScoreboard(client).catch((err: unknown) => log.error('falha ao atualizar o placar', errorMeta(err)));
   startScheduler(client);
   startPromotionScheduler(client);
+  startFreeGameScheduler(client);
 });
 
 client.gateway.on('dispatch', (event, data) => {

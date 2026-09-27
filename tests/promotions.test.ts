@@ -129,7 +129,8 @@ describe('adaptadores (contra a loja falsa)', () => {
     const shops = requests.find((r) => r.url.startsWith('/itad/service/shops/v1'))!;
     expect(shops.headers['itad-api-key']).toBe('chave-teste');
     const deals = requests.find((r) => r.url.startsWith('/itad/deals/v2'))!;
-    expect(deals.url).toContain('key=chave-teste');
+    expect(deals.url).not.toContain('key=');
+    expect(deals.headers['itad-api-key']).toBe('chave-teste');
     // "Green Man Gaming" casa com "GreenManGaming" da ITAD.
     expect(JSON.parse(deals.body)).toMatchObject({ country: 'BR', shops: [50, 36], filter: { cut: { min: 40, max: null } } });
   });
