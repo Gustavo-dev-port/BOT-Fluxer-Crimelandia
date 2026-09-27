@@ -78,6 +78,34 @@ export const config = {
     game: env('WEEKLY_EVENT_GAME', 'Livre'),
   },
 
+  promotions: {
+    enabled: envBool('PROMO_ENABLED', true),
+    /** A cada 30 minutos. */
+    cron: env('PROMO_CRON', '*/30 * * * *'),
+    /** Descontos abaixo disso são ignorados. */
+    minDiscount: envInt('PROMO_MIN_DISCOUNT', 40),
+    /** A partir deste desconto, o cargo de promoções é mencionado. */
+    mentionDiscount: envInt('PROMO_MENTION_DISCOUNT', 80),
+    /** Evita inundar o canal: o excedente sai nas próximas rodadas. */
+    maxPostsPerRun: envInt('PROMO_MAX_POSTS_PER_RUN', 10),
+    staleDays: envInt('PROMO_STALE_DAYS', 3),
+    /** Lojas ativas: steam, epic, gog, humble, itad (Nuuvem/GMG via IsThereAnyDeal). */
+    sources: env('PROMO_SOURCES', 'steam,epic,gog,humble,itad')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+    country: env('PROMO_COUNTRY', 'BR'),
+    currency: env('PROMO_CURRENCY', 'BRL'),
+    itad: {
+      apiKey: process.env.ITAD_API_KEY ?? '',
+      /** Nomes das lojas como a IsThereAnyDeal chama. */
+      shops: env('ITAD_SHOPS', 'Nuuvem,GreenManGaming')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    },
+  },
+
   /**
    * Nomes padrão dos canais, usados pelo !setup e para achar canais já existentes.
    * A comparação ignora emojis e separadores, então "📜┃eventos" também casa com "eventos".

@@ -1,0 +1,45 @@
+{
+  "specials": {
+    "id": "cat_specials",
+    "name": "Ofertas",
+    "items": [
+      {
+        "id": 1091500,
+        "type": 0,
+        "name": "Cyberpunk 2077",
+        "discounted": true,
+        "discount_percent": 65,
+        "original_price": 19999,
+        "final_price": 6999,
+        "currency": "BRL",
+        "large_capsule_image": "https://cdn.akamai.steamstatic.com/steam/apps/1091500/capsule_616x353.jpg",
+        "header_image": "https://cdn.akamai.steamstatic.com/steam/apps/1091500/header.jpg",
+        "discount_expiration": 1893456000
+      },
+      {
+        "id": 367520,
+        "type": 0,
+        "name": "Hollow Knight",
+        "discounted": true,
+        "discount_percent": 85,
+        "original_price": 4699,
+        "final_price": 704,
+        "currency": "BRL",
+        "large_capsule_image": "https://cdn.akamai.steamstatic.com/steam/apps/367520/capsule_616x353.jpg",
+        "discount_expiration": 1893456000
+      },
+      {
+        "id": 570,
+        "type": 0,
+        "name": "Jogo com pouco desconto",
+        "discounted": true,
+        "discount_percent": 20,
+        "original_price": 5000,
+        "final_price": 4000,
+        "currency": "BRL"
+      },
+      { "id": 999, "type": 0, "name": "Item sem preço" }
+    ]
+  },
+  "top_sellers": { "items": [] }
+}

@@ -1,0 +1,209 @@
+{
+  "nextOffset": 3,
+  "hasMore": true,
+  "list": [
+    {
+      "id": "018d937e-e9ce-718b-9715-111f50820ed4",
+      "slug": "lego-marvels-avengers-season-pass",
+      "title": "LEGO Marvel's Avengers Season Pass",
+      "type": "dlc",
+      "mature": false,
+      "assets": {
+        "boxart": "https://assets.isthereanydeal.com/018d937e-e9ce-718b-9715-111f50820ed4/boxart.jpg?t=1732868120",
+        "banner145": "https://assets.isthereanydeal.com/018d937e-e9ce-718b-9715-111f50820ed4/banner145.jpg?t=1732868120",
+        "banner300": "https://assets.isthereanydeal.com/018d937e-e9ce-718b-9715-111f50820ed4/banner300.jpg?t=1732868120",
+        "banner400": "https://assets.isthereanydeal.com/018d937e-e9ce-718b-9715-111f50820ed4/banner400.jpg?t=1732868120",
+        "banner600": "https://assets.isthereanydeal.com/018d937e-e9ce-718b-9715-111f50820ed4/banner600.jpg?t=1732868121"
+      },
+      "deal": {
+        "shop": {
+          "id": 50,
+          "name": "Nuuvem"
+        },
+        "price": {
+          "amount": 1.49,
+          "amountInt": 149,
+          "currency": "BRL"
+        },
+        "regular": {
+          "amount": 29.9,
+          "amountInt": 2990,
+          "currency": "BRL"
+        },
+        "cut": 95,
+        "voucher": null,
+        "storeLow": {
+          "amount": 1.49,
+          "amountInt": 149,
+          "currency": "BRL"
+        },
+        "historyLow": {
+          "amount": 1.49,
+          "amountInt": 149,
+          "currency": "BRL"
+        },
+        "historyLow_1y": {
+          "amount": 1.49,
+          "amountInt": 149,
+          "currency": "BRL"
+        },
+        "historyLow_3m": {
+          "amount": 1.49,
+          "amountInt": 149,
+          "currency": "BRL"
+        },
+        "flag": "H",
+        "drm": [
+          {
+            "id": 61,
+            "name": "Steam"
+          }
+        ],
+        "platforms": [
+          {
+            "id": 1,
+            "name": "Windows"
+          }
+        ],
+        "timestamp": "2024-10-01T15:25:52+02:00",
+        "expiry": "2024-11-01T03:59:59+01:00",
+        "url": "https://itad.link/018d9386-8be1-7319-8ecc-ab31d44c64d8/"
+      }
+    },
+    {
+      "id": "018d937e-e9ec-7103-97a0-732d4301eb72",
+      "slug": "shift-quantum",
+      "title": "Shift Quantum",
+      "type": "game",
+      "mature": false,
+      "assets": {
+        "boxart": "https://assets.isthereanydeal.com/018d937e-e9ec-7103-97a0-732d4301eb72/boxart.jpg",
+        "banner145": "https://assets.isthereanydeal.com/018d937e-e9ec-7103-97a0-732d4301eb72/banner145.jpg",
+        "banner300": "https://assets.isthereanydeal.com/018d937e-e9ec-7103-97a0-732d4301eb72/banner300.jpg",
+        "banner400": "https://assets.isthereanydeal.com/018d937e-e9ec-7103-97a0-732d4301eb72/banner400.jpg",
+        "banner600": "https://assets.isthereanydeal.com/018d937e-e9ec-7103-97a0-732d4301eb72/banner600.jpg"
+      },
+      "deal": {
+        "shop": {
+          "id": 50,
+          "name": "Nuuvem"
+        },
+        "price": {
+          "amount": 11.4,
+          "amountInt": 1140,
+          "currency": "BRL"
+        },
+        "regular": {
+          "amount": 37.99,
+          "amountInt": 3799,
+          "currency": "BRL"
+        },
+        "cut": 70,
+        "voucher": null,
+        "storeLow": {
+          "amount": 9.49,
+          "amountInt": 949,
+          "currency": "BRL"
+        },
+        "historyLow": {
+          "amount": 7.59,
+          "amountInt": 759,
+          "currency": "BRL"
+        },
+        "historyLow_1y": {
+          "amount": 9.49,
+          "amountInt": 949,
+          "currency": "BRL"
+        },
+        "historyLow_3m": {
+          "amount": 9.49,
+          "amountInt": 949,
+          "currency": "BRL"
+        },
+        "flag": null,
+        "drm": [
+          {
+            "id": 61,
+            "name": "Steam"
+          }
+        ],
+        "platforms": [
+          {
+            "id": 1,
+            "name": "Windows"
+          }
+        ],
+        "timestamp": "2024-12-05T04:26:01+01:00",
+        "expiry": "2024-12-19T03:59:59+01:00",
+        "url": "https://itad.link/018d9386-c580-739b-bac6-06f2a7eb5d61/"
+      }
+    },
+    {
+      "id": "018d937e-f7f5-70ea-a1dd-e1901a199f3d",
+      "slug": "grand-theft-auto-v-cesp-and-great-white-shark-card-bundle",
+      "title": "Grand Theft Auto V - CESP + Great White Shark Card Bundle",
+      "type": null,
+      "mature": false,
+      "assets": {
+        "boxart": "https://assets.isthereanydeal.com/018d937e-f7f5-70ea-a1dd-e1901a199f3d/boxart.jpg",
+        "banner145": "https://assets.isthereanydeal.com/018d937e-f7f5-70ea-a1dd-e1901a199f3d/banner145.jpg",
+        "banner300": "https://assets.isthereanydeal.com/018d937e-f7f5-70ea-a1dd-e1901a199f3d/banner300.jpg",
+        "banner400": "https://assets.isthereanydeal.com/018d937e-f7f5-70ea-a1dd-e1901a199f3d/banner400.jpg"
+      },
+      "deal": {
+        "shop": {
+          "id": 50,
+          "name": "Nuuvem"
+        },
+        "price": {
+          "amount": 49.23,
+          "amountInt": 4923,
+          "currency": "BRL"
+        },
+        "regular": {
+          "amount": 109.41,
+          "amountInt": 10941,
+          "currency": "BRL"
+        },
+        "cut": 55,
+        "voucher": null,
+        "storeLow": {
+          "amount": 38.39,
+          "amountInt": 3839,
+          "currency": "BRL"
+        },
+        "historyLow": {
+          "amount": 38.39,
+          "amountInt": 3839,
+          "currency": "BRL"
+        },
+        "historyLow_1y": {
+          "amount": 49.23,
+          "amountInt": 4923,
+          "currency": "BRL"
+        },
+        "historyLow_3m": {
+          "amount": 49.23,
+          "amountInt": 4923,
+          "currency": "BRL"
+        },
+        "flag": null,
+        "drm": [
+          {
+            "id": 61,
+            "name": "Steam"
+          }
+        ],
+        "platforms": [
+          {
+            "id": 1,
+            "name": "Windows"
+          }
+        ],
+        "timestamp": "2024-12-10T05:15:41+01:00",
+        "expiry": "2024-12-14T03:29:00+01:00",
+        "url": "https://itad.link/018d9386-6e38-705c-9b92-958ee5e10f77/"
+      }
+    }
+  ]
+}

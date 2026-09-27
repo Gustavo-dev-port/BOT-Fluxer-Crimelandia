@@ -39,7 +39,13 @@ src/
 │
 ├── commands/       Comandos de texto (`!duelo`…), um arquivo por grupo; `index.ts` tem o registro e o `!ajuda`
 ├── lib/args.ts     parsing dos comandos: prefixo, aspas, menções `<@id>`, `#partida`
-├── database/       Repositórios (ex.: GuildSettingsRepository: canais e cargos por servidor)
+├── database/       Repositórios: GuildSettingsRepository (canais/cargos), PromotionRepository
+├── services/promotions/
+│   ├── adapters/       um adaptador por loja (steam, epic, gog, humble, itad), todos devolvem PromotionOffer
+│   ├── promotionService.ts  regras: desconto mínimo, sem duplicatas, atualizar preço, limite por rodada
+│   └── http.ts         fetch com tempo limite e leitura defensiva de JSON
+├── embeds/         embeds reutilizáveis (promotionEmbed)
+├── schedulers/     agendadores de módulos (promotionScheduler: a cada 30 min)
 ├── utils/logger.ts Winston: console + logs/error.log + logs/combined.log
 ├── config.ts       Variáveis de ambiente e constantes
 ├── db.ts           PrismaClient
@@ -68,5 +74,6 @@ src/
 - **Novo item da loja:** acrescente em `SHOP_ITEMS` (`src/lib/shop.ts`). Tipos: `title`, `color`, `event_credit`, `role`.
 - **Nova conquista:** acrescente em `ACHIEVEMENTS` (`src/lib/achievements.ts`) com uma função `check`.
 - **Novo comando:** crie um `Command` em `src/commands/` (nome, atalhos, categoria, uso, descrição) e registre em `commands/index.ts`. Ele aparece sozinho no `!ajuda`.
+- **Nova loja de promoções:** implemente `PromotionAdapter` em `src/services/promotions/adapters/`, registre em `adapters/index.ts` e crie um teste com uma resposta de exemplo em `tests/fixtures/promotions/`.
 - **Nova chamada à API do Fluxer:** adicione um método em `src/fluxer/rest.ts` seguindo a rota documentada em docs.fluxer.app, e cubra no servidor falso de `tests/mockFluxer.ts`.
 - **Mudança no banco:** edite `prisma/schema.prisma`, rode `npm run db:migrate -- --name descricao` (SQLite) e `npm run db:postgres:sync`, e crie a migração equivalente em `prisma/postgres/migrations/`. Valide com `npm run test:postgres`.

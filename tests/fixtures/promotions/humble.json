@@ -1,0 +1,23 @@
+{
+  "num_results": 2,
+  "num_pages": 1,
+  "results": [
+    {
+      "machine_name": "hades_storefront",
+      "human_name": "Hades",
+      "human_url": "hades",
+      "full_price": { "amount": 24.99, "currency": "USD" },
+      "current_price": { "amount": 6.24, "currency": "USD" },
+      "large_capsule": "https://hb.imgix.net/hades.jpg",
+      "sale_end": 1893456000
+    },
+    {
+      "machine_name": "celeste_storefront",
+      "human_name": "Celeste",
+      "human_url": "celeste",
+      "full_price": [19.99, "USD"],
+      "current_price": [4.99, "USD"],
+      "featured_image": "https://hb.imgix.net/celeste.jpg"
+    }
+  ]
+}

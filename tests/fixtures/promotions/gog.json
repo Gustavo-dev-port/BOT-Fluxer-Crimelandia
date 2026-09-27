@@ -1,0 +1,30 @@
+{
+  "pages": 1,
+  "productCount": 2,
+  "products": [
+    {
+      "id": "1207658924",
+      "slug": "the_witcher_3_wild_hunt_game_of_the_year_edition",
+      "title": "The Witcher 3: Wild Hunt - Complete Edition",
+      "coverHorizontal": "https://images.gog-statics.com/witcher3.jpg",
+      "storeLink": "https://www.gog.com/pt/game/the_witcher_3_wild_hunt_game_of_the_year_edition",
+      "productType": "game",
+      "price": {
+        "final": "R$ 25,99",
+        "base": "R$ 129,99",
+        "discount": "-80%",
+        "finalMoney": { "amount": "25.99", "currency": "BRL", "discount": "104.00" },
+        "baseMoney": { "amount": "129.99", "currency": "BRL" }
+      }
+    },
+    {
+      "id": "1",
+      "slug": "sem-desconto-informado",
+      "title": "Disco Elysium",
+      "coverVertical": "https://images.gog-statics.com/disco.jpg",
+      "productType": "game",
+      "price": { "finalMoney": { "amount": 29.99, "currency": "BRL" }, "baseMoney": { "amount": 99.99, "currency": "BRL" } }
+    },
+    { "id": "2", "title": "Sem preço" }
+  ]
+}

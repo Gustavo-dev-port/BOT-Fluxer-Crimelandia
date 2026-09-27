@@ -1,0 +1,35 @@
+{
+  "data": {
+    "Catalog": {
+      "searchStore": {
+        "elements": [
+          {
+            "id": "a1b2c3",
+            "title": "Red Dead Redemption 2",
+            "productSlug": null,
+            "urlSlug": "heather",
+            "keyImages": [
+              { "type": "OfferImageTall", "url": "https://cdn1.epicgames.com/rdr2-tall.jpg" },
+              { "type": "OfferImageWide", "url": "https://cdn1.epicgames.com/rdr2-wide.jpg" }
+            ],
+            "offerMappings": [{ "pageSlug": "red-dead-redemption-2", "pageType": "productHome" }],
+            "catalogNs": { "mappings": [{ "pageSlug": "red-dead-redemption-2", "pageType": "productHome" }] },
+            "price": {
+              "totalPrice": { "discountPrice": 7497, "originalPrice": 29990, "currencyCode": "BRL" },
+              "lineOffers": [{ "appliedRules": [{ "endDate": "2030-01-01T16:00:00.000Z" }] }]
+            }
+          },
+          {
+            "id": "d4e5f6",
+            "title": "Sem página",
+            "productSlug": "sem-pagina/home",
+            "keyImages": [],
+            "offerMappings": [],
+            "catalogNs": { "mappings": null },
+            "price": { "totalPrice": { "discountPrice": 1000, "originalPrice": 5000, "currencyCode": "BRL" }, "lineOffers": [] }
+          }
+        ]
+      }
+    }
+  }
+}
