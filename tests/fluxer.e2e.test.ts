@@ -362,4 +362,44 @@ describe('comandos e reações', () => {
     const denied = say(GUSTAVO, '!promocoes atualizar');
     expect((await waitFor(() => replyTo(denied))).body.content).toMatch(/Apenas admins/);
   });
+
+  it('jogos grátis: publica no canal configurado e !gratis lista os ativos', async () => {
+    const { FluxerFreeGamePublisher } = await import('../src/bot/freeGamePublisher.js');
+    const { FreeGameService } = await import('../src/services/freeGames/freeGameService.js');
+    const { FreeGameRepository } = await import('../src/database/freeGameRepository.js');
+    await prisma.guildSettings.create({ data: { guildId: GUILD_ID, freeGamesChannelId: '7770002' } });
+    const endsAt = new Date(Date.now() + 3 * 86_400_000);
+    const source = {
+      name: 'fake',
+      fetchFreeGames: async () => [
+        {
+          id: 'epic:1',
+          title: 'Death Stranding',
+          platform: 'Epic Games',
+          kind: 'free' as const,
+          description: 'Kojima.',
+          image: 'https://img/ds.jpg',
+          url: 'https://store.epicgames.com/p/ds',
+          startsAt: null,
+          endsAt,
+        },
+      ],
+    };
+    const svc = new FreeGameService(
+      [source],
+      new FreeGameRepository(),
+      new FluxerFreeGamePublisher(client),
+      { maxPostsPerRun: 10, staleDays: 2 },
+      { info: () => undefined, warn: () => undefined },
+    );
+    await svc.sync();
+    await svc.sync();
+    const posts = mock.callsTo('POST', /^\/channels\/7770002\/messages$/);
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body.embeds[0]).toMatchObject({ title: '🎁 JOGO GRÁTIS', image: { url: 'https://img/ds.jpg' } });
+    expect(posts[0].body.embeds[0].description).toContain('[Resgatar](https://store.epicgames.com/p/ds)');
+
+    const list = say(GUSTAVO, '!gratis');
+    expect((await waitFor(() => replyTo(list))).body.embeds[0].description).toContain('Death Stranding');
+  });
 });

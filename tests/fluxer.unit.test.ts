@@ -75,3 +75,11 @@ describe('schema do PostgreSQL', () => {
     expect(readFileSync('prisma/postgres/schema.prisma', 'utf8')).toBe(toPostgres(readFileSync('prisma/schema.prisma', 'utf8')));
   });
 });
+
+describe('logs sem credenciais', () => {
+  it('HttpError esconde chaves na URL', async () => {
+    const { HttpError, redactUrl } = await import('../src/utils/http.js');
+    expect(redactUrl('https://api/x?limit=5&key=SEGREDO&b=1')).toBe('https://api/x?limit=5&key=***&b=1');
+    expect(new HttpError(403, 'https://api/x?token=abc').message).not.toContain('abc');
+  });
+});

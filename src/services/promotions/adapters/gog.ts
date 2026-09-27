@@ -3,7 +3,7 @@
  * GET https://catalog.gog.com/v1/catalog?order=desc:discount&discounted=eq:true&countryCode=BR&currencyCode=BRL&locale=pt-BR
  * → products[]: id, title, storeLink, coverHorizontal, price.{baseMoney,finalMoney}.amount e price.discount ("-80%").
  */
-import { asArray, discountFrom, fetchJson, isObject, num, str, toCents } from '../http.js';
+import { asArray, discountFrom, fetchJson, isObject, num, str, toCents } from '../../../utils/http.js';
 import type { PromotionAdapter, PromotionOffer } from '../types.js';
 
 export class GogAdapter implements PromotionAdapter {

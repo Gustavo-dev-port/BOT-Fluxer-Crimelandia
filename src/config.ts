@@ -106,6 +106,28 @@ export const config = {
     },
   },
 
+  freeGames: {
+    enabled: envBool('FREE_GAMES_ENABLED', true),
+    /** A cada 1 hora. */
+    cron: env('FREE_GAMES_CRON', '0 * * * *'),
+    maxPostsPerRun: envInt('FREE_GAMES_MAX_POSTS_PER_RUN', 10),
+    staleDays: envInt('FREE_GAMES_STALE_DAYS', 2),
+    /** epic (freeGamesPromotions) e itad (giveaways da Steam/GOG). */
+    sources: env('FREE_GAMES_SOURCES', 'epic,itad')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+    country: env('PROMO_COUNTRY', 'BR'),
+    itad: {
+      apiKey: process.env.ITAD_API_KEY ?? '',
+      /** Lojas dos giveaways da IsThereAnyDeal (vazio = todas). */
+      shops: env('FREE_GAMES_ITAD_SHOPS', 'Steam,GOG')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    },
+  },
+
   /**
    * Nomes padrão dos canais, usados pelo !setup e para achar canais já existentes.
    * A comparação ignora emojis e separadores, então "📜┃eventos" também casa com "eventos".

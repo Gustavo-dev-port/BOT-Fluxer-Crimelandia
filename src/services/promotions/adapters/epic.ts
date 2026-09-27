@@ -7,7 +7,7 @@
  * Observação: a Epic às vezes bloqueia chamadas automáticas; nesse caso o erro é
  * registrado e as outras lojas seguem normalmente.
  */
-import { asArray, discountFrom, fetchJson, isObject, num, str, toDate } from '../http.js';
+import { asArray, discountFrom, fetchJson, isObject, num, str, toDate } from '../../../utils/http.js';
 import type { PromotionAdapter, PromotionOffer } from '../types.js';
 
 const QUERY = `query searchStoreQuery($country: String!, $locale: String, $count: Int, $onSale: Boolean, $sortBy: String, $sortDir: String) {

@@ -2,10 +2,10 @@
  * IsThereAnyDeal (API oficial, https://docs.isthereanydeal.com): usada para lojas
  * sem API pública própria, como Nuuvem e Green Man Gaming.
  * - GET  /service/shops/v1?country=BR → [{ id, title }] (resolve nomes em IDs)
- * - POST /deals/v2?key=… { country, shops, limit, sort, filter: { cut: { min, max } } }
+ * - POST /deals/v2 (cabeçalho ITAD-API-Key) { country, shops, limit, sort, filter: { cut: { min, max } } }
  *   → list[]: id, title, assets.banner400, deal.{shop, price, regular, cut, expiry, url}
  */
-import { asArray, fetchJson, isObject, num, str, toCents, toDate } from '../http.js';
+import { asArray, fetchJson, isObject, num, str, toCents, toDate } from '../../../utils/http.js';
 import type { PromotionAdapter, PromotionOffer } from '../types.js';
 
 export interface ItadOptions {
@@ -50,8 +50,10 @@ export class ItadAdapter implements PromotionAdapter {
   async fetchOffers(): Promise<PromotionOffer[]> {
     const shops = await this.resolveShops();
     if (shops.length === 0) return [];
-    const data = await fetchJson(`${this.base}/deals/v2?key=${encodeURIComponent(this.opts.apiKey)}`, {
+    // A chave vai só no cabeçalho, para nunca aparecer em URLs de log.
+    const data = await fetchJson(`${this.base}/deals/v2`, {
       method: 'POST',
+      headers: { 'ITAD-API-Key': this.opts.apiKey },
       body: {
         country: this.opts.country,
         shops,

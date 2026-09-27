@@ -1,0 +1,83 @@
+{
+  "data": {
+    "Catalog": {
+      "searchStore": {
+        "elements": [
+          {
+            "title": "Death Stranding",
+            "id": "ds1",
+            "namespace": "ns1",
+            "description": "Do lendário criador Hideo Kojima.",
+            "keyImages": [
+              { "type": "Thumbnail", "url": "https://cdn1.epicgames.com/ds-thumb.jpg" },
+              { "type": "OfferImageWide", "url": "https://cdn1.epicgames.com/ds-wide.jpg" }
+            ],
+            "productSlug": null,
+            "urlSlug": "death-stranding",
+            "offerMappings": [{ "pageSlug": "death-stranding", "pageType": "productHome" }],
+            "catalogNs": { "mappings": [{ "pageSlug": "death-stranding", "pageType": "productHome" }] },
+            "price": { "totalPrice": { "discountPrice": 0, "originalPrice": 19990, "currencyCode": "BRL" } },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2030-05-30T15:00:00.000Z",
+                      "endDate": "2030-06-06T15:00:00.000Z",
+                      "discountSetting": { "discountType": "PERCENTAGE", "discountPercentage": 0 }
+                    }
+                  ]
+                }
+              ],
+              "upcomingPromotionalOffers": []
+            }
+          },
+          {
+            "title": "Jogo da próxima semana",
+            "id": "next1",
+            "description": "Em breve.",
+            "keyImages": [],
+            "productSlug": "proximo",
+            "price": { "totalPrice": { "discountPrice": 4999, "originalPrice": 4999, "currencyCode": "BRL" } },
+            "promotions": {
+              "promotionalOffers": [],
+              "upcomingPromotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2030-06-06T15:00:00.000Z",
+                      "endDate": "2030-06-13T15:00:00.000Z",
+                      "discountSetting": { "discountType": "PERCENTAGE", "discountPercentage": 0 }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "title": "Só com desconto",
+            "id": "sale1",
+            "description": "50% off, não é grátis.",
+            "keyImages": [],
+            "productSlug": "sale",
+            "price": { "totalPrice": { "discountPrice": 2500, "originalPrice": 4999, "currencyCode": "BRL" } },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2030-05-30T15:00:00.000Z",
+                      "endDate": "2030-06-06T15:00:00.000Z",
+                      "discountSetting": { "discountType": "PERCENTAGE", "discountPercentage": 50 }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          { "title": "Sem promoções", "id": "none1", "promotions": null }
+        ]
+      }
+    }
+  }
+}
