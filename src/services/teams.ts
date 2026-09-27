@@ -1,5 +1,5 @@
-import { prisma, transaction } from '../db.js';
-import { OPEN_STATUSES, UserError } from '../lib/types.js';
+import { prisma, transaction } from '../database/client.js';
+import { OPEN_STATUSES, UserError } from '../types/domain.js';
 import { ensurePlayer, type PlayerRef } from './players.js';
 
 export const MAX_TEAM_SIZE = 10;

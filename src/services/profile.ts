@@ -1,7 +1,7 @@
-import { prisma } from '../db.js';
-import { ACHIEVEMENTS } from '../lib/achievements.js';
-import { computeRivalries, type DuelRecord } from '../lib/rivalry.js';
-import { MatchStatus } from '../lib/types.js';
+import { prisma } from '../database/client.js';
+import { ACHIEVEMENTS } from './rules/achievements.js';
+import { computeRivalries, type DuelRecord } from './rules/rivalry.js';
+import { MatchStatus } from '../types/domain.js';
 import { ensureStats } from './players.js';
 import { getPosition } from './ranking.js';
 import { getActiveSeason } from './seasons.js';

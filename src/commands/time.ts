@@ -1,7 +1,8 @@
-import { attachPrompt, challengeEmbed } from '../bot/announcer.js';
-import { Colors, mention } from '../bot/format.js';
-import { parseUserMention } from '../lib/args.js';
-import { UserError } from '../lib/types.js';
+import { attachPrompt } from '../services/notifications/announcer.js';
+import { challengeEmbed } from '../embeds/matchEmbeds.js';
+import { Colors, mention } from '../embeds/format.js';
+import { parseUserMention } from '../utils/args.js';
+import { UserError } from '../types/domain.js';
 import { resolveGame } from '../services/games.js';
 import { createTeamChallenge } from '../services/matches.js';
 import { createTeam, disbandTeam, getTeamByName, leaveTeam, listTeams } from '../services/teams.js';

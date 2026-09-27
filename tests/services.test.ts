@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { prisma } from '../src/db.js';
-import { MatchStatus, TournamentFormat, TournamentStatus, UserError } from '../src/lib/types.js';
+import { prisma } from '../src/database/client.js';
+import { MatchStatus, TournamentFormat, TournamentStatus, UserError } from '../src/types/domain.js';
 import {
   acceptDuel,
   adminSetResult,

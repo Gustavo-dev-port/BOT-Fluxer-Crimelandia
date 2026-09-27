@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { eloDelta, expectedScore, softReset, teamEloDelta } from '../src/lib/elo.js';
-import { tierFor } from '../src/lib/tiers.js';
+import { eloDelta, expectedScore, softReset, teamEloDelta } from '../src/services/rules/elo.js';
+import { tierFor } from '../src/services/rules/tiers.js';
 import {
   advanceTarget,
   roundCount,
@@ -9,10 +9,10 @@ import {
   seedOrder,
   singleEliminationBracket,
   singleEliminationFirstRound,
-} from '../src/lib/bracket.js';
-import { computeRivalries, relativeDay } from '../src/lib/rivalry.js';
-import { newlyUnlocked } from '../src/lib/achievements.js';
-import { parseHexColor } from '../src/lib/shop.js';
+} from '../src/services/rules/bracket.js';
+import { computeRivalries, relativeDay } from '../src/services/rules/rivalry.js';
+import { newlyUnlocked } from '../src/services/rules/achievements.js';
+import { parseHexColor } from '../src/services/rules/shop.js';
 
 describe('elo', () => {
   it('ratings iguais → 50%', () => expect(expectedScore(1000, 1000)).toBe(0.5));
@@ -121,10 +121,10 @@ describe('conquistas e loja', () => {
 });
 
 describe('etapa 4: duração, apelidos e calendário', async () => {
-  const { parseDuration } = await import('../src/lib/args.js');
-  const { specialNickname } = await import('../src/lib/shop.js');
-  const { startOfNextMonth } = await import('../src/lib/calendar.js');
-  const { formatDuration } = await import('../src/bot/format.js');
+  const { parseDuration } = await import('../src/utils/args.js');
+  const { specialNickname } = await import('../src/services/rules/shop.js');
+  const { startOfNextMonth } = await import('../src/utils/calendar.js');
+  const { formatDuration } = await import('../src/embeds/format.js');
 
   it('duração da partida', () => {
     expect(parseDuration('25min')).toBe(1500);

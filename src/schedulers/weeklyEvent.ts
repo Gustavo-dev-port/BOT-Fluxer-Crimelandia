@@ -1,10 +1,11 @@
 import { config } from '../config.js';
 import type { FluxerClient } from '../fluxer/client.js';
-import { TournamentFormat, UserError } from '../lib/types.js';
+import { TournamentFormat, UserError } from '../types/domain.js';
 import { cancelTournament, createTournament, dueWeeklyEvents, startTournament } from '../services/tournaments.js';
-import { announceTournamentProgress } from './announcer.js';
-import { sendTo } from './channels.js';
-import { announceTournament, JOIN_EMOJI, refreshTournamentMessage } from './tournamentView.js';
+import { announceTournamentProgress } from '../services/notifications/announcer.js';
+import { sendTo } from '../services/channels.js';
+import { announceTournament, refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
+import { JOIN_EMOJI } from '../embeds/tournamentEmbed.js';
 
 /** Posta o evento semanal em #eventos; quem reagir com ✅ entra na chave. */
 export async function openWeeklyEvent(client: FluxerClient, createdById = 'bot') {

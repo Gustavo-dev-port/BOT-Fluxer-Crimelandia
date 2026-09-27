@@ -1,5 +1,5 @@
 /** Embed de jogo grátis: imagem, nome, descrição, plataforma, prazo e link "Resgatar". */
-import { clip, timeTag } from '../bot/format.js';
+import { clip, timeTag } from './format.js';
 import type { Embed } from '../fluxer/types.js';
 import type { FreeGameOffer } from '../services/freeGames/types.js';
 

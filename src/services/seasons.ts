@@ -1,8 +1,8 @@
 import { config } from '../config.js';
-import { type Db, prisma, transaction } from '../db.js';
-import { startOfNextMonth } from '../lib/calendar.js';
-import { softReset } from '../lib/elo.js';
-import type { Achievement } from '../lib/achievements.js';
+import { type Db, prisma, transaction } from '../database/client.js';
+import { startOfNextMonth } from '../utils/calendar.js';
+import { softReset } from './rules/elo.js';
+import type { Achievement } from './rules/achievements.js';
 import { checkAchievements } from './achievements.js';
 import { addCoins } from './economy.js';
 import { getRanking, type RankingRow } from './ranking.js';

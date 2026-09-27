@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGuildPermissions, has, highestRolePosition, Permission } from '../src/fluxer/permissions.js';
-import { freeText, parseCommand, parseSmallId, parseUserMention, tokenize } from '../src/lib/args.js';
+import { freeText, parseCommand, parseSmallId, parseUserMention, tokenize } from '../src/utils/args.js';
 
 describe('parsing de comandos', () => {
   it('separa nome e argumentos respeitando aspas', () => {
@@ -60,7 +60,7 @@ describe('permissões (docs: Permission computation)', () => {
 
 describe('nomes de canal', () => {
   it('ignora emojis, separadores e acentos', async () => {
-    const { normalizeChannelName } = await import('../src/bot/channels.js');
+    const { normalizeChannelName } = await import('../src/services/channels.js');
     expect(normalizeChannelName('📜┃eventos')).toBe('eventos');
     expect(normalizeChannelName('🎁┃jogos-gratis')).toBe(normalizeChannelName('jogos-grátis'));
     expect(normalizeChannelName('💸┃promocoes')).toBe('promocoes');

@@ -1,8 +1,9 @@
-import type { FluxerClient } from '../fluxer/client.js';
-import type { Message, MessagePayload, Snowflake } from '../fluxer/types.js';
-import { acceptDuel, confirmResult, declineDuel, disputeResult, playersOnSide } from '../services/matches.js';
-import { acceptedEmbed, afterMatchConfirmed, announceDisputed, resultEmbed, retirePrompts } from './announcer.js';
-import { Colors, mention, versus } from './format.js';
+import type { FluxerClient } from '../../fluxer/client.js';
+import type { Message, MessagePayload, Snowflake } from '../../fluxer/types.js';
+import { acceptDuel, confirmResult, declineDuel, disputeResult, playersOnSide } from '../matches.js';
+import { afterMatchConfirmed, announceDisputed, retirePrompts } from './announcer.js';
+import { acceptedEmbed, resultEmbed } from '../../embeds/matchEmbeds.js';
+import { Colors, mention, versus } from '../../embeds/format.js';
 
 /**
  * Quem agiu e como responder. Vindo de um comando, responde com uma nova

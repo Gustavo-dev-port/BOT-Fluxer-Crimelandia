@@ -1,6 +1,6 @@
-import { Colors } from '../bot/format.js';
+import { Colors } from '../embeds/format.js';
 import { config } from '../config.js';
-import { UserError } from '../lib/types.js';
+import { UserError } from '../types/domain.js';
 import { admin, jogo, setup, temporada } from './admin.js';
 import { campeonato, inscrever } from './campeonato.js';
 import { configCommand } from './config.js';

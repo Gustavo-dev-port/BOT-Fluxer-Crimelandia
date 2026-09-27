@@ -1,9 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import { config } from '../config.js';
-import { type Db, prisma, transaction } from '../db.js';
-import type { Achievement } from '../lib/achievements.js';
-import { teamEloDelta } from '../lib/elo.js';
-import { MatchStatus, OPEN_STATUSES, type Side, UserError } from '../lib/types.js';
+import { type Db, prisma, transaction } from '../database/client.js';
+import type { Achievement } from './rules/achievements.js';
+import { teamEloDelta } from './rules/elo.js';
+import { MatchStatus, OPEN_STATUSES, type Side, UserError } from '../types/domain.js';
 import { checkAchievements } from './achievements.js';
 import { addCoins } from './economy.js';
 import { ensurePlayer, ensureStats, type PlayerRef } from './players.js';

@@ -1,10 +1,10 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
 import type { FluxerClient } from '../fluxer/client.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
-import { announceSeasonEnd } from './announcer.js';
+import { announceSeasonEnd } from '../services/notifications/announcer.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 

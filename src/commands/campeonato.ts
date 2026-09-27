@@ -1,10 +1,11 @@
-import { announceTournamentProgress } from '../bot/announcer.js';
-import { Colors } from '../bot/format.js';
-import { announceTournament, FORMAT_LABEL, refreshTournamentMessage, tournamentEmbed } from '../bot/tournamentView.js';
+import { announceTournamentProgress } from '../services/notifications/announcer.js';
+import { Colors } from '../embeds/format.js';
+import { announceTournament, refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
+import { FORMAT_LABEL, tournamentEmbed } from '../embeds/tournamentEmbed.js';
 import { config } from '../config.js';
-import { prisma } from '../db.js';
-import { parseSmallId } from '../lib/args.js';
-import { TournamentFormat, UserError } from '../lib/types.js';
+import { prisma } from '../database/client.js';
+import { parseSmallId } from '../utils/args.js';
+import { TournamentFormat, UserError } from '../types/domain.js';
 import { resolveGame } from '../services/games.js';
 import { consumeEventCredit } from '../services/shop.js';
 import {

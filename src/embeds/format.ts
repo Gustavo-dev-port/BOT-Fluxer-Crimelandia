@@ -1,8 +1,8 @@
 import { config } from '../config.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import type { MatchWithParticipants } from '../services/matches.js';
 import { playersOnSide } from '../services/matches.js';
-import type { Side } from '../lib/types.js';
+import type { Side } from '../types/domain.js';
 
 export const Colors = {
   primary: 0x7c3aed,

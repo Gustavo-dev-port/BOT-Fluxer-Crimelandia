@@ -1,10 +1,10 @@
-import { cmd, Colors, timeTag } from '../bot/format.js';
+import { cmd, Colors, timeTag } from '../embeds/format.js';
 import { config } from '../config.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import type { FluxerClient } from '../fluxer/client.js';
 import type { Snowflake } from '../fluxer/types.js';
-import { findItem, parseHexColor, SHOP_ITEMS, type ShopItem, specialNickname } from '../lib/shop.js';
-import { UserError } from '../lib/types.js';
+import { findItem, parseHexColor, SHOP_ITEMS, type ShopItem, specialNickname } from '../services/rules/shop.js';
+import { UserError } from '../types/domain.js';
 import { ensurePlayer } from '../services/players.js';
 import { equipTitle, purchase, recentTransactions, refund } from '../services/shop.js';
 import { type Command, refOf } from './types.js';

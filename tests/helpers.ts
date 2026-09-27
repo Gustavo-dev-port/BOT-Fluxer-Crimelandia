@@ -1,4 +1,4 @@
-import { prisma } from '../src/db.js';
+import { prisma } from '../src/database/client.js';
 
 /** Limpa todas as tabelas entre testes. */
 export async function resetDb() {

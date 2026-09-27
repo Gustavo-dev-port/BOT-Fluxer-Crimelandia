@@ -39,7 +39,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 1. No Fluxer, crie uma aplicação (Configurações → aplicações/desenvolvedor). A criação gera o **token do bot** no formato `<application_id>.<secret>` — ele só aparece uma vez (`FLUXER_TOKEN`).
 2. Copie o ID do seu servidor (`FLUXER_GUILD_ID`).
 3. Suba o bot uma vez (passo 2): ele imprime no log o **link de convite** (`/v1/oauth2/authorize?client_id=…&scope=bot&permissions=…`) já com as permissões necessárias:
-   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar canais (só para o `!setup`)_.
+   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (só para o `!setup`)_.
 4. Para os cargos funcionarem, o cargo do bot precisa ficar **acima** dos cargos que ele entrega (hierarquia do Fluxer).
 
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
@@ -150,16 +150,16 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 
 ### Duelos
 
-| Comando                              | Função                                                    |
-| ------------------------------------ | --------------------------------------------------------- |
-| `!duelo @amigo <jogo>`               | Cria um desafio — o bot adiciona ✅ e ❌ na mensagem      |
-| `!aceitar [#partida]` ou reagir ✅   | Aceita o duelo                                            |
-| `!recusar [#partida]` ou reagir ❌   | Recusa o duelo                                            |
-| `!cancelar [#partida]`               | Cancela um desafio que você criou                         |
-| `!resultado @vencedor [#partida]`    | Registra quem venceu — **o outro lado precisa confirmar** |
-| `!confirmar [#partida]` ou reagir ✅ | Confirma o resultado informado pelo adversário            |
-| `!contestar [#partida]` ou reagir ⚠️ | Contesta; a partida vai para um admin                     |
-| `!partidas`                          | Suas partidas em aberto                                   |
+| Comando                                     | Função                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `!duelo @amigo <jogo>`                      | Cria um desafio — o bot adiciona ✅ e ❌ na mensagem                                       |
+| `!aceitar [#partida]` ou reagir ✅          | Aceita o duelo                                                                             |
+| `!recusar [#partida]` ou reagir ❌          | Recusa o duelo                                                                             |
+| `!cancelar [#partida]`                      | Cancela um desafio que você criou                                                          |
+| `!resultado @vencedor [duração] [#partida]` | Registra quem venceu (ex.: `!resultado @Lucas 25min`) — **o outro lado precisa confirmar** |
+| `!confirmar [#partida]` ou reagir ✅        | Confirma o resultado informado pelo adversário                                             |
+| `!contestar [#partida]` ou reagir ⚠️        | Contesta; a partida vai para um admin                                                      |
+| `!partidas`                                 | Suas partidas em aberto                                                                    |
 
 ### Ranking e perfil
 
@@ -170,27 +170,27 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!perfil [@jogador]`              | Liga, colocação, vitórias (+ na semana), derrotas, win rate, sequência, jogos favoritos, conquistas |
 | `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto                                                                |
 
-### Times e campeonatos
+### Times e eventos
 
-| Comando                                                        | Função                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `!time criar <nome> @membros…`                                 | Cria um time (você é o capitão)                                    |
-| `!time desafiar "Meu Time" "Adversário" <jogo>`                | Desafio entre times do mesmo tamanho (capitão adversário reage ✅) |
-| `!time info` · `listar` · `sair` · `desfazer`                  | Gestão de times                                                    |
-| `!campeonato criar "Nome" <jogo> [mata-mata\|todos] [tamanho]` | Cria torneio (admin, ou com crédito da loja)                       |
-| `!campeonato iniciar <id>`                                     | Fecha inscrições, define seeds pelo rating e gera a chave          |
-| `!campeonato chave <id>`                                       | Mostra chave / classificação                                       |
-| `!campeonato listar` · `sair <id>` · `cancelar <id>`           | Gestão de campeonatos                                              |
-| `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio             | Entra no evento                                                    |
+| Comando                                                    | Função                                                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `!time criar <nome> @membros…`                             | Cria um time (você é o capitão)                                                        |
+| `!time desafiar "Meu Time" "Adversário" <jogo>`            | Desafio entre times do mesmo tamanho (capitão adversário reage ✅)                     |
+| `!time info` · `listar` · `sair` · `desfazer`              | Gestão de times                                                                        |
+| `!evento criar "Nome" <jogo> [mata-mata\|todos] [tamanho]` | Cria evento 1v1, 2v2… (admin, ou com crédito da loja). `!campeonato` é o mesmo comando |
+| `!evento iniciar <id>`                                     | Fecha inscrições, define seeds pelo rating e gera a chave                              |
+| `!evento chave <id>`                                       | Mostra chave / classificação                                                           |
+| `!evento listar` · `sair <id>` · `cancelar <id>`           | Gestão de eventos                                                                      |
+| `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio         | Entra no evento                                                                        |
 
 ### Economia
 
-| Comando                                           | Função                                       |
-| ------------------------------------------------- | -------------------------------------------- |
-| `!loja`                                           | Itens disponíveis                            |
-| `!comprar <item> [#cor]`                          | Compra um item (`!comprar cor-nick #ff8800`) |
-| `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil                     |
-| `!saldo`                                          | Saldo e últimas movimentações                |
+| Comando                                           | Função                                                                                                                 |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `!loja`                                           | Itens disponíveis                                                                                                      |
+| `!resgatar <item> [#cor \| apelido]`              | Resgata um item (`!resgatar cor-nick #ff8800`, `!resgatar apelido-especial Rei do Clutch`); `!comprar` também funciona |
+| `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil                                                                                               |
+| `!saldo`                                          | Saldo e últimas movimentações                                                                                          |
 
 ### Administração
 
@@ -245,13 +245,66 @@ Na confirmação, o bot atualiza ELO/pontos, paga FluxCoins, verifica conquistas
 
 Em partidas de time, usa-se a média de rating de cada lado e todos recebem a mesma variação.
 
-**Temporadas** — duram `SEASON_DAYS` (30). No fim: 🥇 o campeão recebe o cargo `CHAMPION_ROLE_ID` (retirado do campeão anterior) e +150 FluxCoins; 📊 as estatísticas ficam arquivadas (`!rank N`); 🔄 o ranking recomeça do zero, ou parcialmente com `SEASON_CARRY_OVER` (ex.: `0.5` mantém metade da distância até 1000).
+**Temporadas** — mensais: terminam à meia-noite do dia 1º do mês seguinte, no fuso `TIMEZONE` (com `SEASON_MODE=days`, duram `SEASON_DAYS`). No fim: 🥇 o campeão recebe o cargo **🏆 Campeão do Reino** (criado pelo `!setup`, ou o definido em `!config campeao-role`), que sai do campeão anterior, e +150 FluxCoins; 📊 as estatísticas ficam arquivadas (`!rank N`); 🔄 o ranking recomeça do zero, ou parcialmente com `SEASON_CARRY_OVER` (ex.: `0.5` mantém metade da distância até 1000).
 
 **FluxCoins** — vitória +25 · participação +10 · campeão (torneio ou temporada) +150 · evento especial (Night Fluxer) +50 para cada participante.
 
-**Loja** — títulos (Rei do Rush, Fantasma, Sniper, Senhor do Clutch, Tryhard), cor do nickname por 7 dias, evento personalizado (permite criar um campeonato) e cargo VIP (`SHOP_VIP_ROLE_ID`). Itens ficam em `src/lib/shop.ts`.
+**Loja** — títulos (Rei do Rush, Fantasma, Sniper, Senhor do Clutch, Tryhard), cor do nickname (7 dias), apelido especial ✨ (7 dias; o apelido anterior volta depois), cargo VIP temporário (7 dias, `SHOP_VIP_ROLE_ID`) e evento personalizado (permite criar um evento). Itens ficam em `src/services/rules/shop.ts`.
+
+**Partidas** — o banco registra vencedor, perdedor, jogo, duração e data. A duração vem do `!resultado` (ex.: `25min`, `1h20`) ou é medida do aceite até o resultado; o `!perfil` mostra a média.
 
 **Evento semanal** — `WEEKLY_EVENT_CRON` (padrão `0 20 * * 5`, sexta 20h no fuso `TIMEZONE`). Quem reagir com ✅ entra na chave; após `WEEKLY_EVENT_REGISTRATION_MINUTES` (30) a chave é gerada automaticamente. Com menos de 2 inscritos, o evento é cancelado.
+
+## Variáveis de ambiente
+
+Todas estão comentadas no `.env.example`. As principais:
+
+| Variável                                              | Padrão               | Para quê                                                                 |
+| ----------------------------------------------------- | -------------------- | ------------------------------------------------------------------------ |
+| `FLUXER_TOKEN`                                        | —                    | Token do bot (`<application_id>.<secret>`), **obrigatório**              |
+| `FLUXER_GUILD_ID`                                     | —                    | ID do servidor, **obrigatório**                                          |
+| `FLUXER_INSTANCE`                                     | `https://fluxer.app` | Instância do Fluxer (endpoints via `/.well-known/fluxer`)                |
+| `COMMAND_PREFIX`                                      | `!`                  | Prefixo dos comandos                                                     |
+| `DATABASE_URL`                                        | `file:./fluxer.db`   | SQLite no desenvolvimento; o compose monta a do PostgreSQL               |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `fluxer`             | PostgreSQL do `docker compose`                                           |
+| `LOG_LEVEL`                                           | `info`               | Nível dos logs (`logs/combined.log`, `logs/error.log`)                   |
+| `TIMEZONE`                                            | `America/Sao_Paulo`  | Fuso de temporadas e agendamentos                                        |
+| `RANKING_MODE`                                        | `pontos`             | `pontos` ou `elo`                                                        |
+| `SEASON_MODE` / `SEASON_DAYS` / `SEASON_CARRY_OVER`   | `monthly` / 30 / 0   | Temporadas                                                               |
+| `CHAMPION_ROLE_ID`                                    | —                    | Alternativa ao `!config campeao-role`                                    |
+| `ITAD_API_KEY`                                        | —                    | Chave gratuita da IsThereAnyDeal (Nuuvem, GMG, giveaways Steam/GOG)      |
+| `PROMO_*`                                             | ver `.env.example`   | Promoções: fontes, desconto mínimo (40), menção (80), intervalo (30 min) |
+| `FREE_GAMES_*`                                        | ver `.env.example`   | Jogos grátis: fontes, intervalo (1 h)                                    |
+| `WEEKLY_EVENT_*`                                      | sexta 20h            | Evento semanal Night Fluxer                                              |
+| `SHOP_VIP_ROLE_ID`                                    | —                    | Cargo entregue pelo item VIP da loja                                     |
+
+## Deploy
+
+1. Num servidor com Docker, clone o repositório e crie o `.env`: token, ID do servidor e uma senha forte em `POSTGRES_PASSWORD`.
+2. `docker compose up -d --build`. O bot aplica as migrações do PostgreSQL sozinho.
+3. Atualizar: `git pull && docker compose up -d --build`.
+4. Logs: `docker compose logs -f bot` ou os arquivos no volume `bot-logs`.
+
+## Música (Lavalink)
+
+O módulo de música da especificação usa Lavalink, que só se conecta à voz do **Discord**. A voz do Fluxer usa **LiveKit** (docs.fluxer.app → Voice), então o Lavalink não funciona aqui. Por isso não há `/play` nem serviço `lavalink` no compose. O canal de música já pode ser configurado (`!config musica #canal`) para quando existir um player compatível com LiveKit (veja `docs/AUDITORIA.md`).
+
+## Estrutura
+
+```
+src/
+├── commands/     comandos de texto
+├── events/       eventos do Gateway (mensagens e reações)
+├── services/     regras de negócio (duelos, eventos, temporadas, promoções, jogos grátis, notificações)
+├── database/     Prisma e repositórios
+├── embeds/       montagem das mensagens
+├── schedulers/   tarefas agendadas
+├── utils/        logger, http, parsing, calendário
+├── types/        tipos de domínio
+└── fluxer/       cliente da API do Fluxer
+```
+
+Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Situação do projeto em [`docs/AUDITORIA.md`](docs/AUDITORIA.md).
 
 ## Desenvolvimento
 

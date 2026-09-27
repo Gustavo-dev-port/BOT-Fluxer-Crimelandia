@@ -1,4 +1,4 @@
-import { Colors, timeTag } from '../bot/format.js';
+import { Colors, timeTag } from '../embeds/format.js';
 import { config } from '../config.js';
 import { PromotionRepository } from '../database/promotionRepository.js';
 import { formatMoney } from '../embeds/promotionEmbed.js';

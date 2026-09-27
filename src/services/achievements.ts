@@ -1,6 +1,6 @@
-import type { Db } from '../db.js';
-import { type Achievement, newlyUnlocked } from '../lib/achievements.js';
-import { TournamentStatus } from '../lib/types.js';
+import type { Db } from '../database/client.js';
+import { type Achievement, newlyUnlocked } from './rules/achievements.js';
+import { TournamentStatus } from '../types/domain.js';
 
 export async function countTournamentTitles(db: Db, playerId: string): Promise<number> {
   const tournaments = await db.tournament.findMany({

@@ -1,11 +1,11 @@
-import { scoreboardEmbed } from '../bot/announcer.js';
-import { Colors, formatDuration, medal, mention, signed, timeTag } from '../bot/format.js';
+import { scoreboardEmbed } from '../embeds/matchEmbeds.js';
+import { Colors, formatDuration, medal, mention, signed, timeTag } from '../embeds/format.js';
 import { config } from '../config.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import type { Embed } from '../fluxer/types.js';
-import { relativeDay } from '../lib/rivalry.js';
-import { tierFor } from '../lib/tiers.js';
-import { UserError } from '../lib/types.js';
+import { relativeDay } from '../services/rules/rivalry.js';
+import { tierFor } from '../services/rules/tiers.js';
+import { UserError } from '../types/domain.js';
 import { getProfile, getRivalries } from '../services/profile.js';
 import { getRanking, type RankingMode, rankingValue } from '../services/ranking.js';
 import { getActiveSeason } from '../services/seasons.js';

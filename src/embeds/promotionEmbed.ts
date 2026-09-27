@@ -1,5 +1,5 @@
 /** Embed de promoção: "🟢 NOVA PROMOÇÃO" ou "🔄 PREÇO ATUALIZADO". */
-import { timeTag } from '../bot/format.js';
+import { timeTag } from './format.js';
 import type { Embed } from '../fluxer/types.js';
 import type { PromotionOffer } from '../services/promotions/types.js';
 

@@ -1,8 +1,9 @@
-import { afterMatchConfirmed, announceDisputed, attachPrompt, awaitingEmbed, challengeEmbed, resultEmbed } from '../bot/announcer.js';
-import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from '../bot/duelActions.js';
-import { Colors, mention, STATUS_LABEL, versus } from '../bot/format.js';
-import { freeText, parseDuration } from '../lib/args.js';
-import { UserError } from '../lib/types.js';
+import { afterMatchConfirmed, announceDisputed, attachPrompt } from '../services/notifications/announcer.js';
+import { awaitingEmbed, challengeEmbed, resultEmbed } from '../embeds/matchEmbeds.js';
+import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from '../services/notifications/duelActions.js';
+import { Colors, mention, STATUS_LABEL, versus } from '../embeds/format.js';
+import { freeText, parseDuration } from '../utils/args.js';
+import { UserError } from '../types/domain.js';
 import { resolveGame } from '../services/games.js';
 import { cancelDuel, createDuel, listOpenMatches, playersOnSide, reportResult } from '../services/matches.js';
 import { type Command, type CommandContext, refOf } from './types.js';

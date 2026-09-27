@@ -1,6 +1,6 @@
 /** Roda o módulo de promoções no intervalo configurado (padrão: a cada 30 min). */
 import cron from 'node-cron';
-import { FluxerPromotionPublisher } from '../bot/promotionPublisher.js';
+import { FluxerPromotionPublisher } from '../services/notifications/promotionPublisher.js';
 import { config } from '../config.js';
 import { PromotionRepository } from '../database/promotionRepository.js';
 import type { FluxerClient } from '../fluxer/client.js';

@@ -3,8 +3,9 @@
  * servidor Fluxer falso que segue docs.fluxer.app.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { onMessageCreate, onReaction } from '../src/bot/events.js';
-import { prisma } from '../src/db.js';
+import { onMessageCreate } from '../src/events/messageCreate.js';
+import { onReaction } from '../src/events/reactions.js';
+import { prisma } from '../src/database/client.js';
 import { FluxerClient } from '../src/fluxer/client.js';
 import { RestClient } from '../src/fluxer/rest.js';
 import type { MessageCreateEvent, ReactionEvent } from '../src/fluxer/types.js';
@@ -314,7 +315,7 @@ describe('comandos e reações', () => {
   });
 
   it('promoções: publica no canal configurado, menciona o cargo em ≥80% e edita quando o preço muda', async () => {
-    const { FluxerPromotionPublisher } = await import('../src/bot/promotionPublisher.js');
+    const { FluxerPromotionPublisher } = await import('../src/services/notifications/promotionPublisher.js');
     const { PromotionService } = await import('../src/services/promotions/promotionService.js');
     const { PromotionRepository } = await import('../src/database/promotionRepository.js');
     await prisma.guildSettings.create({ data: { guildId: GUILD_ID, promoChannelId: '7770001', promoRoleId: '8880002' } });
@@ -364,7 +365,7 @@ describe('comandos e reações', () => {
   });
 
   it('jogos grátis: publica no canal configurado e !gratis lista os ativos', async () => {
-    const { FluxerFreeGamePublisher } = await import('../src/bot/freeGamePublisher.js');
+    const { FluxerFreeGamePublisher } = await import('../src/services/notifications/freeGamePublisher.js');
     const { FreeGameService } = await import('../src/services/freeGames/freeGameService.js');
     const { FreeGameRepository } = await import('../src/database/freeGameRepository.js');
     await prisma.guildSettings.create({ data: { guildId: GUILD_ID, freeGamesChannelId: '7770002' } });
@@ -431,7 +432,7 @@ describe('comandos e reações', () => {
     expect(patch.body).toEqual({ nick: '✨ Rei do Clutch' });
     expect((await prisma.player.findUniqueOrThrow({ where: { id: '100' } })).coins).toBe(700);
 
-    const { restoreExpiredNicknames } = await import('../src/bot/scheduler.js');
+    const { restoreExpiredNicknames } = await import('../src/schedulers/maintenanceScheduler.js');
     await restoreExpiredNicknames(client, new Date(Date.now() + 8 * 86_400_000));
     const restore = mock.callsTo('PATCH', new RegExp(`^/guilds/${GUILD_ID}/members/100$`))[1];
     expect(restore.body).toEqual({ nick: null }); // não tinha apelido antes

@@ -1,13 +1,13 @@
 /** Publica promoções no canal configurado do Fluxer. */
-import { config } from '../config.js';
-import { guildSettings } from '../database/guildSettingsRepository.js';
-import type { StoredPromotion } from '../database/promotionRepository.js';
-import { promotionContent, promotionEmbed } from '../embeds/promotionEmbed.js';
-import type { FluxerClient } from '../fluxer/client.js';
-import type { PromotionPublisher } from '../services/promotions/promotionService.js';
-import type { PromotionOffer } from '../services/promotions/types.js';
-import { errorMeta, scoped } from '../utils/logger.js';
-import { getChannelId } from './channels.js';
+import { config } from '../../config.js';
+import { guildSettings } from '../../database/guildSettingsRepository.js';
+import type { StoredPromotion } from '../../database/promotionRepository.js';
+import { promotionContent, promotionEmbed } from '../../embeds/promotionEmbed.js';
+import type { FluxerClient } from '../../fluxer/client.js';
+import type { PromotionPublisher } from '../promotions/promotionService.js';
+import type { PromotionOffer } from '../promotions/types.js';
+import { errorMeta, scoped } from '../../utils/logger.js';
+import { getChannelId } from '../channels.js';
 
 const log = scoped('promoções');
 

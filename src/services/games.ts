@@ -1,6 +1,6 @@
 import { config } from '../config.js';
-import { prisma } from '../db.js';
-import { UserError } from '../lib/types.js';
+import { prisma } from '../database/client.js';
+import { UserError } from '../types/domain.js';
 
 export async function seedDefaultGames() {
   for (const name of config.defaultGames) {
