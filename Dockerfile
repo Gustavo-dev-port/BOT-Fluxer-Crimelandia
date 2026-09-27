@@ -2,9 +2,9 @@ FROM node:22-slim AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm ci
+# O postinstall roda "prisma generate", que precisa do schema.
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npm ci
 COPY tsconfig*.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
