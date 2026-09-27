@@ -11,12 +11,15 @@ import type { FluxerClient } from '../fluxer/client.js';
 import type { MessageCreateEvent, MessagePayload, ReactionEvent, User } from '../fluxer/types.js';
 import { parseCommand } from '../lib/args.js';
 import { TournamentStatus, UserError } from '../lib/types.js';
-import { getSetting } from '../services/settings.js';
 import { findByMessage, register, unregister } from '../services/tournaments.js';
 import { Emoji } from './announcer.js';
+import { getChannelId } from './channels.js';
 import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from './duelActions.js';
 import { mention } from './format.js';
 import { JOIN_EMOJI, refreshTournamentMessage } from './tournamentView.js';
+import { errorMeta, scoped } from '../utils/logger.js';
+
+const log = scoped('eventos');
 
 /** Comandos que admins usam em qualquer canal, mesmo com a restrição a #comandos. */
 const ANYWHERE = new Set(['setup', 'admin']);
@@ -35,14 +38,16 @@ export async function onMessageCreate(client: FluxerClient, message: MessageCrea
   try {
     if (command.adminOnly) await ctx.requireAdmin();
     if (config.restrictToCommandsChannel && !ANYWHERE.has(command.name) && !(await ctx.isAdmin())) {
-      const allowed = await getSetting('channel:commands');
+      const allowed = await getChannelId(client, 'commands');
       if (allowed && message.channel_id !== allowed) throw new UserError(`Use os comandos do bot em <#${allowed}>.`);
     }
+    log.info(`!${command.name}`, { user: message.author.id, channel: message.channel_id, args: parsed.args.length });
     await command.execute(ctx);
   } catch (err) {
     const text = err instanceof UserError ? `❌ ${err.message}` : '❌ Algo deu errado. Tente novamente em instantes.';
-    if (!(err instanceof UserError)) console.error(`[comando ${command.name}]`, err);
-    await ctx.reply(text).catch((e) => console.error('[comando] falha ao responder:', e));
+    if (!(err instanceof UserError))
+      log.error(`comando ${command.name} falhou`, { user: message.author.id, content: message.content, ...errorMeta(err) });
+    await ctx.reply(text).catch((e: unknown) => log.error('falha ao responder comando', errorMeta(e)));
   }
 }
 
@@ -75,13 +80,14 @@ async function handlePromptReaction(client: FluxerClient, event: ReactionEvent):
     client,
     userId: event.user_id,
     // Edita a própria mensagem do prompt, como um botão faria.
-    respond: (payload: MessagePayload) => client.rest.editMessage(prompt.channelId, prompt.messageId, { ...payload, allowed_mentions: { parse: [] } }),
+    respond: (payload: MessagePayload) =>
+      client.rest.editMessage(prompt.channelId, prompt.messageId, { ...payload, allowed_mentions: { parse: [] } }),
   };
   try {
     await action(actor, prompt.matchId);
   } catch (err) {
     if (!(err instanceof UserError)) {
-      console.error('[reação] erro:', err);
+      log.error('erro ao tratar reação', errorMeta(err));
       return true;
     }
     // Só avisa quem participa da partida; reações de curiosos são ignoradas.
@@ -109,6 +115,6 @@ export async function onReaction(client: FluxerClient, event: ReactionEvent, add
     }
     await refreshTournamentMessage(client, tournament.id);
   } catch (err) {
-    if (!(err instanceof UserError)) console.error('[reação] erro:', err);
+    if (!(err instanceof UserError)) log.error('erro ao tratar reação', errorMeta(err));
   }
 }

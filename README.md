@@ -9,7 +9,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Times** — 2v2, 3v3 ou squads de até 10
 - **Campeonatos** — chave simples (mata-mata) ou todos contra todos
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
-- **Eventos semanais** — toda sexta às 20h: *Night Fluxer*, inscrição reagindo com ✅
+- **Eventos semanais** — toda sexta às 20h: _Night Fluxer_, inscrição reagindo com ✅
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
 - **Conquistas** — medalhas desbloqueadas automaticamente
 - **Rivalidades** — `!rival` descobre quem vocês mais enfrentam
@@ -18,15 +18,17 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 
 ## Stack
 
-| Tecnologia | Uso |
-| --- | --- |
-| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos) |
-| API do Fluxer | HTTP API + Gateway, cliente próprio em `src/fluxer/` |
-| SQLite | Banco local (suficiente para 20–100 membros) |
-| Prisma 6 | ORM e migrações |
-| node-cron | Temporadas, expirações e evento semanal |
-| Vitest | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta) |
-| Docker | Hospedagem |
+| Tecnologia              | Uso                                                                   |
+| ----------------------- | --------------------------------------------------------------------- |
+| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                     |
+| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                  |
+| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)            |
+| Prisma 6                | ORM e migrações                                                       |
+| node-cron               | Temporadas, expirações e evento semanal                               |
+| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta) |
+| Winston                 | Logs no console e em `logs/error.log` / `logs/combined.log`           |
+| ESLint + Prettier       | Qualidade e formatação do código                                      |
+| Docker                  | Hospedagem (bot + PostgreSQL)                                         |
 
 ## Instalação
 
@@ -35,7 +37,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 1. No Fluxer, crie uma aplicação (Configurações → aplicações/desenvolvedor). A criação gera o **token do bot** no formato `<application_id>.<secret>` — ele só aparece uma vez (`FLUXER_TOKEN`).
 2. Copie o ID do seu servidor (`FLUXER_GUILD_ID`).
 3. Suba o bot uma vez (passo 2): ele imprime no log o **link de convite** (`/v1/oauth2/authorize?client_id=…&scope=bot&permissions=…`) já com as permissões necessárias:
-   *Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar canais (só para o `!setup`)*.
+   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar canais (só para o `!setup`)_.
 4. Para os cargos funcionarem, o cargo do bot precisa ficar **acima** dos cargos que ele entrega (hierarquia do Fluxer).
 
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
@@ -44,12 +46,15 @@ Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para el
 
 ```bash
 cp .env.example .env         # preencha FLUXER_TOKEN e FLUXER_GUILD_ID
-npm install
-npx prisma migrate deploy    # cria o banco SQLite em prisma/fluxer.db
-npm run dev
+npm install                  # também gera o Prisma Client
+npm run dev                  # aplica as migrações (SQLite em prisma/fluxer.db) e sobe o bot
 ```
 
-No servidor, rode **`!setup`** (admin) para criar os canais `#comandos`, `#placar`, `#partidas` e `#eventos`. Use **`!ajuda`** para ver todos os comandos.
+No Windows (PowerShell), troque `cp` por `Copy-Item .env.example .env`.
+
+No servidor, rode **`!setup`** (admin): ele cria os canais `#comandos`, `#placar`, `#partidas` e `#eventos` e o cargo **🏆 Campeão do Reino**. Depois ajuste o que quiser com **`!config`** e veja todos os comandos com **`!ajuda`**.
+
+> ⚠️ Valores reais (token, senhas) vão **só no `.env`**, que o git ignora. Nunca no `.env.example`.
 
 ### 3. Docker
 
@@ -58,16 +63,43 @@ cp .env.example .env   # preencha
 docker compose up -d --build
 ```
 
-O banco fica no volume `fluxer-data` (`/data/fluxer.db`). As migrações rodam sozinhas ao subir o container.
+O compose sobe dois serviços:
+
+- **bot**: a imagem de produção, que usa **PostgreSQL** e aplica as migrações de `prisma/postgres/` ao iniciar.
+- **postgres**: PostgreSQL 16, com os dados no volume `postgres-data`. Usuário, senha e banco vêm de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` no `.env`.
+
+Os logs ficam no volume `bot-logs` (`/app/logs`). Veja com `docker compose logs -f bot`.
+
+O módulo de música com Lavalink ficou de fora: o Lavalink só funciona com a voz do Discord, e o Fluxer usa LiveKit.
+
+### Banco de dados: SQLite e PostgreSQL
+
+O Prisma fixa o tipo de banco dentro do schema, então há dois:
+
+- `prisma/schema.prisma` — a **fonte da verdade** (SQLite, desenvolvimento).
+- `prisma/postgres/schema.prisma` — **gerado** a partir do primeiro, só troca o provider (produção).
+
+Ao mudar o banco:
+
+```bash
+npm run db:migrate -- --name minha_mudanca   # 1. migração SQLite
+npm run db:postgres:sync                      # 2. regenera o schema do PostgreSQL
+# 3. migração PostgreSQL (precisa de um PostgreSQL local vazio em DATABASE_URL):
+npx prisma migrate dev --schema prisma/postgres/schema.prisma --name minha_mudanca --create-only
+```
+
+Um teste falha se os dois schemas ficarem diferentes.
 
 ## Canais
 
-| Canal | Função |
-| --- | --- |
+| Canal       | Função                                                                    |
+| ----------- | ------------------------------------------------------------------------- |
 | `#comandos` | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
-| `#placar` | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada |
-| `#partidas` | Histórico das disputas confirmadas e das disputas contestadas |
-| `#eventos` | Campeonatos, evento semanal e fim de temporada |
+| `#placar`   | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
+| `#partidas` | Histórico das disputas confirmadas e das disputas contestadas             |
+| `#eventos`  | Campeonatos, evento semanal e fim de temporada                            |
+
+Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 
 ## Comandos
 
@@ -75,62 +107,66 @@ O banco fica no volume `fluxer-data` (`/data/fluxer.db`). As migrações rodam s
 
 ### Duelos
 
-| Comando | Função |
-| --- | --- |
-| `!duelo @amigo <jogo>` | Cria um desafio — o bot adiciona ✅ e ❌ na mensagem |
-| `!aceitar [#partida]` ou reagir ✅ | Aceita o duelo |
-| `!recusar [#partida]` ou reagir ❌ | Recusa o duelo |
-| `!cancelar [#partida]` | Cancela um desafio que você criou |
-| `!resultado @vencedor [#partida]` | Registra quem venceu — **o outro lado precisa confirmar** |
-| `!confirmar [#partida]` ou reagir ✅ | Confirma o resultado informado pelo adversário |
-| `!contestar [#partida]` ou reagir ⚠️ | Contesta; a partida vai para um admin |
-| `!partidas` | Suas partidas em aberto |
+| Comando                              | Função                                                    |
+| ------------------------------------ | --------------------------------------------------------- |
+| `!duelo @amigo <jogo>`               | Cria um desafio — o bot adiciona ✅ e ❌ na mensagem      |
+| `!aceitar [#partida]` ou reagir ✅   | Aceita o duelo                                            |
+| `!recusar [#partida]` ou reagir ❌   | Recusa o duelo                                            |
+| `!cancelar [#partida]`               | Cancela um desafio que você criou                         |
+| `!resultado @vencedor [#partida]`    | Registra quem venceu — **o outro lado precisa confirmar** |
+| `!confirmar [#partida]` ou reagir ✅ | Confirma o resultado informado pelo adversário            |
+| `!contestar [#partida]` ou reagir ⚠️ | Contesta; a partida vai para um admin                     |
+| `!partidas`                          | Suas partidas em aberto                                   |
 
 ### Ranking e perfil
 
-| Comando | Função |
-| --- | --- |
-| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`) |
-| `!top10` | Os 10 melhores jogadores |
-| `!perfil [@jogador]` | Liga, colocação, vitórias (+ na semana), derrotas, win rate, sequência, jogos favoritos, conquistas |
-| `!rival [@jogador] [@outro]` | Maior rivalidade ou confronto direto |
+| Comando                           | Função                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`)                              |
+| `!top10`                          | Os 10 melhores jogadores                                                                            |
+| `!perfil [@jogador]`              | Liga, colocação, vitórias (+ na semana), derrotas, win rate, sequência, jogos favoritos, conquistas |
+| `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto                                                                |
 
 ### Times e campeonatos
 
-| Comando | Função |
-| --- | --- |
-| `!time criar <nome> @membros…` | Cria um time (você é o capitão) |
-| `!time desafiar "Meu Time" "Adversário" <jogo>` | Desafio entre times do mesmo tamanho (capitão adversário reage ✅) |
-| `!time info` · `listar` · `sair` · `desfazer` | Gestão de times |
-| `!campeonato criar "Nome" <jogo> [mata-mata\|todos] [tamanho]` | Cria torneio (admin, ou com crédito da loja) |
-| `!campeonato iniciar <id>` | Fecha inscrições, define seeds pelo rating e gera a chave |
-| `!campeonato chave <id>` | Mostra chave / classificação |
-| `!campeonato listar` · `sair <id>` · `cancelar <id>` | Gestão de campeonatos |
-| `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio | Entra no evento |
+| Comando                                                        | Função                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `!time criar <nome> @membros…`                                 | Cria um time (você é o capitão)                                    |
+| `!time desafiar "Meu Time" "Adversário" <jogo>`                | Desafio entre times do mesmo tamanho (capitão adversário reage ✅) |
+| `!time info` · `listar` · `sair` · `desfazer`                  | Gestão de times                                                    |
+| `!campeonato criar "Nome" <jogo> [mata-mata\|todos] [tamanho]` | Cria torneio (admin, ou com crédito da loja)                       |
+| `!campeonato iniciar <id>`                                     | Fecha inscrições, define seeds pelo rating e gera a chave          |
+| `!campeonato chave <id>`                                       | Mostra chave / classificação                                       |
+| `!campeonato listar` · `sair <id>` · `cancelar <id>`           | Gestão de campeonatos                                              |
+| `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio             | Entra no evento                                                    |
 
 ### Economia
 
-| Comando | Função |
-| --- | --- |
-| `!loja` | Itens disponíveis |
-| `!comprar <item> [#cor]` | Compra um item (`!comprar cor-nick #ff8800`) |
-| `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil |
-| `!saldo` | Saldo e últimas movimentações |
+| Comando                                           | Função                                       |
+| ------------------------------------------------- | -------------------------------------------- |
+| `!loja`                                           | Itens disponíveis                            |
+| `!comprar <item> [#cor]`                          | Compra um item (`!comprar cor-nick #ff8800`) |
+| `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil                     |
+| `!saldo`                                          | Saldo e últimas movimentações                |
 
 ### Administração
 
 Admin = quem tem **Gerenciar Servidor** (ou Administrador, ou é o dono).
 
-| Comando | Função |
-| --- | --- |
-| `!setup` | Cria/configura os canais |
-| `!temporada [encerrar]` | Informações / encerra a temporada agora |
-| `!jogo listar` · `adicionar <nome>` · `remover <nome>` | Jogos disponíveis para disputas |
-| `!admin resultado #partida @vencedor` | Resolve disputas |
-| `!admin cancelar #partida` | Cancela uma partida não confirmada |
-| `!admin moedas @jogador <quantidade> [motivo]` | Ajusta FluxCoins |
-| `!admin placar` | Recria a mensagem do placar |
-| `!admin evento-semanal` | Abre o evento semanal agora |
+| Comando                                                                             | Função                                        |
+| ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `!setup`                                                                            | Cria/configura os canais e o cargo de campeão |
+| `!config`                                                                           | Mostra a configuração do servidor             |
+| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos> #canal` | Define um canal                               |
+| `!config <promo-role\|campeao-role> @cargo`                                         | Define um cargo                               |
+| `!config idioma pt-BR` · `!config <opção> limpar`                                   | Idioma / remove um valor                      |
+| `!temporada [encerrar]`                                                             | Informações / encerra a temporada agora       |
+| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                              | Jogos disponíveis para disputas               |
+| `!admin resultado #partida @vencedor`                                               | Resolve disputas                              |
+| `!admin cancelar #partida`                                                          | Cancela uma partida não confirmada            |
+| `!admin moedas @jogador <quantidade> [motivo]`                                      | Ajusta FluxCoins                              |
+| `!admin placar`                                                                     | Recria a mensagem do placar                   |
+| `!admin evento-semanal`                                                             | Abre o evento semanal agora                   |
 
 ## Como funciona um duelo
 
@@ -154,15 +190,15 @@ Na confirmação, o bot atualiza ELO/pontos, paga FluxCoins, verifica conquistas
 
 **Ranking** — `RANKING_MODE=pontos` (padrão: vitória +3, derrota +1) ou `elo`. O ELO é sempre calculado (K=32, início 1000) e define a liga:
 
-| Liga | Rating |
-| --- | --- |
-| Ferro | < 1000 |
+| Liga            | Rating    |
+| --------------- | --------- |
+| Ferro           | < 1000    |
 | Bronze III/II/I | 1000–1199 |
-| Prata | 1200–1399 |
-| Ouro | 1400–1599 |
-| Platina | 1600–1799 |
-| Diamante | 1800–1999 |
-| Mestre | 2000+ |
+| Prata           | 1200–1399 |
+| Ouro            | 1400–1599 |
+| Platina         | 1600–1799 |
+| Diamante        | 1800–1999 |
+| Mestre          | 2000+     |
 
 Em partidas de time, usa-se a média de rating de cada lado e todos recebem a mesma variação.
 
@@ -177,12 +213,18 @@ Em partidas de time, usa-se a média de rating de cada lado e todos recebem a me
 ## Desenvolvimento
 
 ```bash
-npm run dev          # bot com hot reload
-npm test             # testes: lógica pura, serviços num SQLite de teste e o bot
-                     # inteiro contra um servidor Fluxer falso (tests/mockFluxer.ts)
+npm run dev            # bot com hot reload (aplica migrações antes)
+npm test               # testes: lógica pura, serviços num SQLite de teste e o bot
+                       # inteiro contra um servidor Fluxer falso (tests/mockFluxer.ts)
+npm run test:postgres  # os mesmos testes num PostgreSQL (defina TEST_DATABASE_URL)
 npm run typecheck
+npm run lint           # ESLint (sem any, sem console fora dos scripts)
+npm run format         # Prettier
+npm run check          # typecheck + lint + formatação + testes
 npm run build
-npm run db:studio    # navegar no banco
+npm run db:studio      # navegar no banco
 ```
+
+Logs: `logs/combined.log` (tudo) e `logs/error.log` (só erros), em JSON. Ajuste o nível com `LOG_LEVEL`.
 
 Veja [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) para a estrutura do código e como estender (novos jogos, itens, conquistas, comandos).

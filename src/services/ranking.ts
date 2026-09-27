@@ -21,11 +21,7 @@ function orderBy(mode: RankingMode) {
 }
 
 /** Ranking da temporada. Só entra quem jogou ao menos uma partida. */
-export async function getRanking(
-  db: Db,
-  seasonId: number,
-  opts: { limit?: number; mode?: RankingMode } = {},
-): Promise<RankingRow[]> {
+export async function getRanking(db: Db, seasonId: number, opts: { limit?: number; mode?: RankingMode } = {}): Promise<RankingRow[]> {
   const rows = await db.playerSeasonStats.findMany({
     where: { seasonId, OR: [{ wins: { gt: 0 } }, { losses: { gt: 0 } }] },
     include: { player: true },

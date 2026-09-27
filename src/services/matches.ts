@@ -75,10 +75,7 @@ export async function createDuel(challenger: PlayerRef, opponent: PlayerRef, gam
         status: { in: OPEN_STATUSES },
         tournamentId: null,
         team1Id: null,
-        AND: [
-          { participants: { some: { playerId: challenger.id } } },
-          { participants: { some: { playerId: opponent.id } } },
-        ],
+        AND: [{ participants: { some: { playerId: challenger.id } } }, { participants: { some: { playerId: opponent.id } } }],
       },
     });
     if (existing) throw new UserError(`Já existe uma disputa aberta entre vocês (partida #${existing.id}).`);
@@ -279,14 +276,7 @@ const awaitingFromOtherSide = (userId: string) => (m: MatchWithParticipants) => 
 
 export async function confirmResult(userId: string, matchId?: number | null): Promise<ConfirmedMatch> {
   return transaction(async (tx) => {
-    const match = await resolveMatch(
-      tx,
-      userId,
-      matchId,
-      [MatchStatus.AWAITING_CONFIRMATION],
-      awaitingFromOtherSide(userId),
-      'confirmar',
-    );
+    const match = await resolveMatch(tx, userId, matchId, [MatchStatus.AWAITING_CONFIRMATION], awaitingFromOtherSide(userId), 'confirmar');
     return finalizeMatch(tx, match, match.winnerSide as Side);
   });
 }
@@ -339,7 +329,13 @@ async function finalizeMatch(tx: Prisma.TransactionClient, match: MatchWithParti
     await tx.playerSeasonStats.update({
       where: { id: s.id },
       data: won
-        ? { rating: s.rating + delta, points: { increment: config.points.win }, wins: { increment: 1 }, streak: newStreak, bestStreak: Math.max(s.bestStreak, newStreak) }
+        ? {
+            rating: s.rating + delta,
+            points: { increment: config.points.win },
+            wins: { increment: 1 },
+            streak: newStreak,
+            bestStreak: Math.max(s.bestStreak, newStreak),
+          }
         : { rating: s.rating - delta, points: { increment: config.points.loss }, losses: { increment: 1 }, streak: 0 },
     });
     await tx.matchParticipant.update({

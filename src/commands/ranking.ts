@@ -86,10 +86,18 @@ export const perfil: Command = {
       author: { name: player.username },
       description: header,
       fields: [
-        { name: 'Vitórias', value: `**${stats.wins}**${profile.winsThisWeek ? ` (${signed(profile.winsThisWeek)} na semana)` : ''}`, inline: true },
+        {
+          name: 'Vitórias',
+          value: `**${stats.wins}**${profile.winsThisWeek ? ` (${signed(profile.winsThisWeek)} na semana)` : ''}`,
+          inline: true,
+        },
         { name: 'Derrotas', value: `**${stats.losses}**`, inline: true },
         { name: 'Win rate', value: `**${profile.winRate}%**`, inline: true },
-        { name: 'Sequência', value: `**${stats.streak}** vitórias${stats.bestStreak ? ` (recorde ${stats.bestStreak})` : ''}`, inline: true },
+        {
+          name: 'Sequência',
+          value: `**${stats.streak}** vitórias${stats.bestStreak ? ` (recorde ${stats.bestStreak})` : ''}`,
+          inline: true,
+        },
         { name: 'Pontos', value: `**${stats.points}**`, inline: true },
         { name: 'FluxCoins', value: `🪙 **${player.coins}**`, inline: true },
         { name: 'Jogos favoritos', value: profile.favoriteGames.length ? profile.favoriteGames.join(' · ') : '—' },
@@ -121,10 +129,13 @@ export const rival: Command = {
 
     if (!r) {
       throw new UserError(
-        against ? `${mention(me.id)} e ${mention(against.id)} ainda não se enfrentaram.` : `${mention(me.id)} ainda não tem duelos 1v1 confirmados.`,
+        against
+          ? `${mention(me.id)} e ${mention(against.id)} ainda não se enfrentaram.`
+          : `${mention(me.id)} ainda não tem duelos 1v1 confirmados.`,
       );
     }
-    const leader = r.wins === r.losses ? 'Empate técnico! 🤝' : r.wins > r.losses ? `${mention(me.id)} lidera` : `${mention(r.opponentId)} lidera`;
+    const leader =
+      r.wins === r.losses ? 'Empate técnico! 🤝' : r.wins > r.losses ? `${mention(me.id)} lidera` : `${mention(r.opponentId)} lidera`;
     const intro = against
       ? ''
       : `${me.id === ctx.author.id ? 'Sua maior rivalidade' : `A maior rivalidade de ${mention(me.id)}`} é com ${mention(r.opponentId)}\n\n`;

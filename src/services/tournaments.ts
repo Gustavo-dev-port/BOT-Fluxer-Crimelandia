@@ -1,13 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { config } from '../config.js';
 import { type Db, prisma, transaction } from '../db.js';
-import {
-  advanceTarget,
-  roundCount,
-  roundRobin,
-  roundRobinStandings,
-  singleEliminationBracket,
-} from '../lib/bracket.js';
+import { advanceTarget, roundCount, roundRobin, roundRobinStandings, singleEliminationBracket } from '../lib/bracket.js';
 import { MatchStatus, OPEN_STATUSES, type Side, TournamentFormat, TournamentStatus, UserError } from '../lib/types.js';
 import { addCoins } from './economy.js';
 import { ensurePlayer, type PlayerRef } from './players.js';
@@ -238,7 +232,14 @@ async function finishTournament(tx: Tx, tournamentId: number, winnerEntryId: num
 /** Chamado dentro da transação de confirmação de uma partida de campeonato. */
 export async function onTournamentMatchConfirmed(
   tx: Tx,
-  match: { id: number; tournamentId: number | null; round: number | null; slot: number | null; entry1Id: number | null; entry2Id: number | null },
+  match: {
+    id: number;
+    tournamentId: number | null;
+    round: number | null;
+    slot: number | null;
+    entry1Id: number | null;
+    entry2Id: number | null;
+  },
   winnerSide: Side,
 ): Promise<TournamentProgress> {
   const t = await getTournament(tx, match.tournamentId!);
@@ -253,7 +254,11 @@ export async function onTournamentMatchConfirmed(
 
   const open = await tx.match.count({ where: { tournamentId: t.id, status: { in: OPEN_STATUSES } } });
   if (open === 0) {
-    const standings = await roundRobinTable(tx, t.id, t.entries.map((e) => e.id));
+    const standings = await roundRobinTable(
+      tx,
+      t.id,
+      t.entries.map((e) => e.id),
+    );
     progress.finished = await finishTournament(tx, t.id, standings[0].entry, t.entries);
   }
   return progress;

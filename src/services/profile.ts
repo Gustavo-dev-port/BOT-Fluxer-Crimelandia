@@ -35,7 +35,10 @@ export async function getProfile(playerId: string) {
 
   const gameCount = new Map<string, number>();
   for (const p of confirmed) gameCount.set(p.match.game, (gameCount.get(p.match.game) ?? 0) + 1);
-  const favoriteGames = [...gameCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
+  const favoriteGames = [...gameCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([g]) => g);
 
   const allWins = confirmed.filter((p) => p.match.winnerSide === p.side).length;
   const seasonTitles = await prisma.season.count({ where: { championId: playerId } });

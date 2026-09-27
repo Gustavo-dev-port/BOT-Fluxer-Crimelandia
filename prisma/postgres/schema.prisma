@@ -1,3 +1,4 @@
+// ARQUIVO GERADO por scripts/sync-postgres-schema.mjs — não edite; edite prisma/schema.prisma.
 // Fluxer BOT — esquema do banco (SQLite via Prisma)
 // Status e formatos são armazenados como String; os valores válidos estão
 // documentados em src/lib/types.ts.
@@ -7,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

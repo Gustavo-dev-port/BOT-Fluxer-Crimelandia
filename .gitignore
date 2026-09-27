@@ -6,3 +6,4 @@ dist/
 prisma/*.db*
 coverage/
 tests/*.db*
+logs/

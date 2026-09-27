@@ -23,9 +23,27 @@ export const ACHIEVEMENTS: Achievement[] = [
   { key: 'matches_25', name: 'Viciado', emoji: '🕹️', description: 'Jogue 25 partidas', check: (c) => c.totalMatches >= 25 },
   { key: 'streak_5', name: 'Em Chamas', emoji: '🔥', description: '5 vitórias seguidas', check: (c) => c.currentStreak >= 5 },
   { key: 'streak_10', name: 'Imparável', emoji: '⚡', description: '10 vitórias seguidas', check: (c) => c.currentStreak >= 10 },
-  { key: 'giant_killer', name: 'Mata-Gigante', emoji: '🗡️', description: 'Vença alguém com 200+ de rating a mais', check: (c) => (c.lastWinRatingGap ?? 0) >= 200 },
-  { key: 'tournament_champ', name: 'Campeão de Torneio', emoji: '🏆', description: 'Vença um campeonato', check: (c) => c.tournamentTitles >= 1 },
-  { key: 'season_champ', name: 'Campeão da Temporada', emoji: '👑', description: 'Termine uma temporada em 1º', check: (c) => c.seasonTitles >= 1 },
+  {
+    key: 'giant_killer',
+    name: 'Mata-Gigante',
+    emoji: '🗡️',
+    description: 'Vença alguém com 200+ de rating a mais',
+    check: (c) => (c.lastWinRatingGap ?? 0) >= 200,
+  },
+  {
+    key: 'tournament_champ',
+    name: 'Campeão de Torneio',
+    emoji: '🏆',
+    description: 'Vença um campeonato',
+    check: (c) => c.tournamentTitles >= 1,
+  },
+  {
+    key: 'season_champ',
+    name: 'Campeão da Temporada',
+    emoji: '👑',
+    description: 'Termine uma temporada em 1º',
+    check: (c) => c.seasonTitles >= 1,
+  },
 ];
 
 /** Conquistas que o contexto satisfaz e o jogador ainda não tem. */

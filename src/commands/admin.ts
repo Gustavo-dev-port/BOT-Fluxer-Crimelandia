@@ -1,5 +1,6 @@
 import { afterMatchConfirmed, announceSeasonEnd, resultEmbed, retirePrompts, updateScoreboard } from '../bot/announcer.js';
-import { type ChannelKey, setChannel } from '../bot/channels.js';
+import { type ChannelKey, normalizeChannelName, setChannel } from '../bot/channels.js';
+import { guildSettings } from '../database/guildSettingsRepository.js';
 import { Colors, mention, timeTag } from '../bot/format.js';
 import { openWeeklyEvent } from '../bot/weeklyEvent.js';
 import { config } from '../config.js';
@@ -15,34 +16,40 @@ import { ensurePlayer } from '../services/players.js';
 import { endActiveSeason, getActiveSeason } from '../services/seasons.js';
 import { type Command, refOf } from './types.js';
 
-const CHANNEL_TOPICS: Record<ChannelKey, string> = {
+/** Canais que o !setup cria. Promoções e jogos grátis entram quando esses módulos existirem. */
+const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
   commands: 'Todos os comandos do bot',
   scoreboard: 'Ranking atualizado automaticamente',
   matches: 'Histórico das disputas',
   events: 'Inscrição para campeonatos',
 };
 
+export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';
+
 export const setup: Command = {
   name: 'setup',
   category: 'Administração',
   usage: '',
-  description: 'Cria/configura os canais #comandos, #placar, #partidas e #eventos',
+  description: 'Cria/configura os canais #comandos, #placar, #partidas e #eventos e o cargo de campeão',
   adminOnly: true,
   async execute(ctx) {
     const { client } = ctx;
     const existing = await client.rest.getGuildChannels(client.guildId);
-    const botId = client.botId!;
+    const botId = client.botId;
+    if (!botId) throw new UserError('O bot ainda está conectando. Tente de novo em alguns segundos.');
     const lines: string[] = [];
-    for (const key of Object.keys(config.channels) as ChannelKey[]) {
+    for (const [key, topic] of Object.entries(SETUP_CHANNELS) as [ChannelKey, string][]) {
       const name = config.channels[key];
-      let channel = existing.find((c) => c.type === ChannelType.GUILD_TEXT && c.name === name);
+      let channel = existing.find(
+        (c) => c.type === ChannelType.GUILD_TEXT && c.name && normalizeChannelName(c.name) === normalizeChannelName(name),
+      );
       if (!channel) {
         channel = await client.rest.createGuildChannel(
           client.guildId,
           {
             name,
             type: ChannelType.GUILD_TEXT,
-            topic: CHANNEL_TOPICS[key],
+            topic,
             // #placar é só leitura para os membros (o @everyone tem o mesmo ID do servidor).
             permission_overwrites:
               key === 'scoreboard'
@@ -58,10 +65,27 @@ export const setup: Command = {
       } else {
         lines.push(`✅ encontrado <#${channel.id}>`);
       }
-      await setChannel(key, channel.id);
+      await setChannel(client, key, channel.id);
     }
+
+    // Cargo automático do campeão da temporada.
+    const championRole = await guildSettings.getRole(client.guildId, 'champion');
+    if (championRole) {
+      lines.push(`✅ cargo de campeão: <@&${championRole}>`);
+    } else {
+      const role = await client.rest
+        .createRole(client.guildId, { name: CHAMPION_ROLE_NAME, color: 0xfacc15, permissions: '0' }, 'Fluxer BOT setup')
+        .catch(() => null);
+      if (role) {
+        await guildSettings.setRole(client.guildId, 'champion', role.id);
+        lines.push(`✨ criado o cargo <@&${role.id}>`);
+      } else {
+        lines.push('⚠️ não consegui criar o cargo de campeão (o bot precisa de **Gerenciar Cargos**)');
+      }
+    }
+
     await updateScoreboard(client);
-    await ctx.reply(`Canais configurados:\n${lines.join('\n')}`);
+    await ctx.reply({ content: `Configuração concluída:\n${lines.join('\n')}`, allowed_mentions: { parse: [] } });
   },
 };
 

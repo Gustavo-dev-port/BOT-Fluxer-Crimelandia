@@ -26,7 +26,9 @@ function roundName(round: number, total: number): string {
 export async function tournamentEmbed(tournamentId: number): Promise<Embed> {
   const t = await getTournament(prisma, tournamentId);
   const label = new Map(t.entries.map((e) => [e.id, entryLabel(e)]));
-  const statusText = { REGISTRATION: 'Inscrições abertas', RUNNING: 'Em andamento', FINISHED: 'Finalizado', CANCELLED: 'Cancelado' }[t.status];
+  const statusText = { REGISTRATION: 'Inscrições abertas', RUNNING: 'Em andamento', FINISHED: 'Finalizado', CANCELLED: 'Cancelado' }[
+    t.status
+  ];
   const fields: NonNullable<Embed['fields']> = [];
   const embed: Embed = {
     color: t.status === TournamentStatus.FINISHED ? Colors.gold : Colors.info,
@@ -57,7 +59,11 @@ export async function tournamentEmbed(tournamentId: number): Promise<Embed> {
 
   const matches = await tournamentMatches(t.id);
   if (t.format === TournamentFormat.ROUND_ROBIN) {
-    const table = await roundRobinTable(prisma, t.id, t.entries.map((e) => e.id));
+    const table = await roundRobinTable(
+      prisma,
+      t.id,
+      t.entries.map((e) => e.id),
+    );
     fields.push({
       name: 'Classificação',
       value: clip(table.map((s, i) => `${medal(i + 1)} ${label.get(s.entry)} — ${s.wins}V/${s.losses}D`).join('\n'), 1024),

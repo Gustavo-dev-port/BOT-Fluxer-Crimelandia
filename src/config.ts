@@ -78,11 +78,18 @@ export const config = {
     game: env('WEEKLY_EVENT_GAME', 'Livre'),
   },
 
+  /**
+   * Nomes padrão dos canais, usados pelo !setup e para achar canais já existentes.
+   * A comparação ignora emojis e separadores, então "📜┃eventos" também casa com "eventos".
+   */
   channels: {
     commands: 'comandos',
     scoreboard: 'placar',
     matches: 'partidas',
     events: 'eventos',
+    promo: 'promocoes',
+    freeGames: 'jogos-gratis',
+    music: 'musica',
   },
 
   defaultGames: ['Valorant', 'CS2', 'League of Legends', 'Fortnite', 'Rocket League', 'EA FC', 'Livre'],

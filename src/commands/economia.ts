@@ -8,6 +8,9 @@ import { UserError } from '../lib/types.js';
 import { ensurePlayer } from '../services/players.js';
 import { equipTitle, purchase, recentTransactions, refund } from '../services/shop.js';
 import { type Command, refOf } from './types.js';
+import { errorMeta, scoped } from '../utils/logger.js';
+
+const log = scoped('loja');
 
 export const loja: Command = {
   name: 'loja',
@@ -38,7 +41,13 @@ export const loja: Command = {
 };
 
 /** Aplica itens que dependem de cargos no servidor. */
-async function applyRoleItem(client: FluxerClient, userId: Snowflake, username: string, item: ShopItem, color: number | null): Promise<string> {
+async function applyRoleItem(
+  client: FluxerClient,
+  userId: Snowflake,
+  username: string,
+  item: ShopItem,
+  color: number | null,
+): Promise<string> {
   const reason = 'Loja Fluxer';
   if (item.kind === 'role') {
     const roleId = process.env[item.roleEnv];
@@ -61,7 +70,11 @@ async function applyRoleItem(client: FluxerClient, userId: Snowflake, username: 
       }
     }
     if (!roleId) {
-      const role = await client.rest.createRole(client.guildId, { name: `🎨 ${username}`.slice(0, 100), color: color!, permissions: '0' }, reason);
+      const role = await client.rest.createRole(
+        client.guildId,
+        { name: `🎨 ${username}`.slice(0, 100), color: color!, permissions: '0' },
+        reason,
+      );
       roleId = role.id;
       // Cargos novos nascem na posição 1; sobe para logo abaixo do cargo do bot para a cor aparecer.
       const top = await client.botTopRolePosition().catch(() => 0);
@@ -99,8 +112,10 @@ export const comprar: Command = {
       } catch (err) {
         await refund(ctx.author.id, item);
         if (err instanceof UserError) throw err;
-        console.error('[loja] Falha ao aplicar item:', err);
-        throw new UserError('Não consegui aplicar o item (o bot precisa da permissão **Gerenciar Cargos**). Suas FluxCoins foram devolvidas.');
+        log.error('falha ao aplicar item da loja', { item: item.id, ...errorMeta(err) });
+        throw new UserError(
+          'Não consegui aplicar o item (o bot precisa da permissão **Gerenciar Cargos**). Suas FluxCoins foram devolvidas.',
+        );
       }
     }
     await ctx.reply(`🛒 Você comprou **${item.name}**! ${message}\nSaldo: 🪙 **${balance}**`);
@@ -120,7 +135,8 @@ export const titulo: Command = {
       const typed = ctx.args.slice(1).join(' ').trim().toLowerCase();
       const titles = await prisma.playerTitle.findMany({ where: { playerId: ctx.author.id } });
       const title = titles.find((t) => t.title.toLowerCase() === typed)?.title;
-      if (!title) throw new UserError(`Você não tem esse título. Seus títulos: ${titles.map((t) => `**${t.title}**`).join(', ') || 'nenhum'}.`);
+      if (!title)
+        throw new UserError(`Você não tem esse título. Seus títulos: ${titles.map((t) => `**${t.title}**`).join(', ') || 'nenhum'}.`);
       await equipTitle(ctx.author.id, title);
       await ctx.reply(`🎖️ Título **${title}** equipado!`);
     } else if (sub === 'remover') {
@@ -130,7 +146,9 @@ export const titulo: Command = {
     } else {
       const titles = await prisma.playerTitle.findMany({ where: { playerId: ctx.author.id } });
       await ctx.reply(
-        titles.length ? `Seus títulos: ${titles.map((t) => `**${t.title}**`).join(', ')}` : `Você ainda não tem títulos. Veja a \`${config.prefix}loja\`!`,
+        titles.length
+          ? `Seus títulos: ${titles.map((t) => `**${t.title}**`).join(', ')}`
+          : `Você ainda não tem títulos. Veja a \`${config.prefix}loja\`!`,
       );
     }
   },
@@ -151,7 +169,12 @@ export const saldo: Command = {
           color: Colors.gold,
           title: `🪙 ${player.coins} FluxCoins`,
           description: txs.length
-            ? txs.map((t) => `${t.amount >= 0 ? '🟢' : '🔴'} **${t.amount >= 0 ? '+' : ''}${t.amount}** — ${t.reason} · ${timeTag(t.createdAt)}`).join('\n')
+            ? txs
+                .map(
+                  (t) =>
+                    `${t.amount >= 0 ? '🟢' : '🔴'} **${t.amount >= 0 ? '+' : ''}${t.amount}** — ${t.reason} · ${timeTag(t.createdAt)}`,
+                )
+                .join('\n')
             : '_Sem movimentações ainda._',
         },
       ],

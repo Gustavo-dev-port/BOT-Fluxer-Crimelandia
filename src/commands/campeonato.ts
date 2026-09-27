@@ -55,7 +55,9 @@ export const campeonato: Command = {
       if (!teamSize) throw new UserError('Tamanho do time inválido.');
       const game = await resolveGame(gameText);
       if (!(await ctx.isAdmin()) && !(await consumeEventCredit(ctx.author.id))) {
-        throw new UserError(`Só admins podem criar campeonatos. Compre um **evento personalizado** na \`${config.prefix}loja\` para criar o seu!`);
+        throw new UserError(
+          `Só admins podem criar campeonatos. Compre um **evento personalizado** na \`${config.prefix}loja\` para criar o seu!`,
+        );
       }
       const t = await createTournament({ name: name.slice(0, 60), game, format, teamSize, createdById: ctx.author.id });
       await announceTournament(ctx.client, t.id, `📢 Novo campeonato! Inscreva-se com \`${config.prefix}inscrever ${t.id}\`.`);
@@ -69,7 +71,9 @@ export const campeonato: Command = {
         (t) =>
           `\`#${t.id}\` **${t.name}** — ${t.game} · ${FORMAT_LABEL[t.format]} · ${t._count.entries} inscritos · ${t.status === 'RUNNING' ? '🎮 em andamento' : '📝 inscrições abertas'}`,
       );
-      await ctx.reply({ embeds: [{ color: Colors.info, title: '🏆 Campeonatos', description: lines.join('\n') || '_Nenhum campeonato aberto._' }] });
+      await ctx.reply({
+        embeds: [{ color: Colors.info, title: '🏆 Campeonatos', description: lines.join('\n') || '_Nenhum campeonato aberto._' }],
+      });
       return;
     }
 
@@ -120,7 +124,11 @@ export const inscrever: Command = {
   details: ['Individual: `!inscrever 3` · Em times (capitão): `!inscrever 3 "Os Brabos"`'],
   async execute(ctx) {
     const id = ctx.requireSmallId('ID do campeonato');
-    const teamName = ctx.args.filter((a) => parseSmallId(a) === null).join(' ').trim() || null;
+    const teamName =
+      ctx.args
+        .filter((a) => parseSmallId(a) === null)
+        .join(' ')
+        .trim() || null;
     const { tournament, label } = await register(id, refOf(ctx.author), teamName);
     await refreshTournamentMessage(ctx.client, id);
     await ctx.reply({ ...quiet, content: `📝 ${label} inscrito em **${tournament.name}**!` });

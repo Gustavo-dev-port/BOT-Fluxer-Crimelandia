@@ -2,7 +2,7 @@
  * Servidor Fluxer falso para testes, seguindo docs.fluxer.app:
  * descoberta (/.well-known/fluxer), HTTP API (/v1/...) e Gateway (WebSocket JSON).
  */
-import { createServer, type IncomingMessage, type Server } from 'node:http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -24,6 +24,7 @@ export const CHANNELS = {
   placar: 'c-placar',
   partidas: 'c-partidas',
   eventos: 'c-eventos',
+  '💸┃promocoes': '7770001',
 };
 
 export class MockFluxer {
@@ -79,7 +80,11 @@ export class MockFluxer {
       if (frame.op === 2) {
         if (frame.d.token !== TOKEN) return ws.close(4004, 'Invalid token');
         this.seq = 0;
-        this.send(ws, 'READY', { session_id: this.sessionId, user: { id: BOT_ID, username: 'fluxerbot', bot: true }, guilds: [{ id: GUILD_ID, unavailable: true }] });
+        this.send(ws, 'READY', {
+          session_id: this.sessionId,
+          user: { id: BOT_ID, username: 'fluxerbot', bot: true },
+          guilds: [{ id: GUILD_ID, unavailable: true }],
+        });
         this.send(ws, 'GUILD_CREATE', {
           id: GUILD_ID,
           properties: { id: GUILD_ID, name: 'Crimelândia', owner_id: OWNER_ID },
@@ -111,7 +116,7 @@ export class MockFluxer {
 
   // ─── HTTP ─────────────────────────────────────────────────────────────────
 
-  private async handleHttp(req: IncomingMessage, res: import('node:http').ServerResponse) {
+  private async handleHttp(req: IncomingMessage, res: ServerResponse) {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
     const text = Buffer.concat(chunks).toString();
@@ -153,17 +158,42 @@ export class MockFluxer {
     if (req.method === 'PATCH' && (m = /^\/channels\/([^/]+)\/messages\/([^/]+)$/.exec(path))) {
       return json(200, this.message(m[1], m[2], body));
     }
+    if (req.method === 'POST' && path === `/guilds/${GUILD_ID}/roles`) {
+      const role = {
+        id: `r${this.nextMessageId++}`,
+        name: body.name,
+        color: body.color ?? 0,
+        position: 1,
+        permissions: body.permissions ?? '0',
+        hoist: false,
+        mentionable: false,
+      };
+      this.roles.push(role);
+      return json(200, role);
+    }
+    if (req.method === 'POST' && path === `/guilds/${GUILD_ID}/channels`) {
+      return json(200, { id: `c${this.nextMessageId++}`, name: body.name, type: body.type, guild_id: GUILD_ID });
+    }
     if (req.method === 'PUT' || req.method === 'DELETE') return json(204);
     if (path === `/guilds/${GUILD_ID}`) return json(200, { id: GUILD_ID, name: 'Crimelândia', owner_id: OWNER_ID });
     if (path === `/guilds/${GUILD_ID}/roles`) return json(200, this.roles);
     if (path === `/guilds/${GUILD_ID}/channels`) {
-      return json(200, Object.entries(CHANNELS).map(([name, id]) => ({ id, name, type: 0, guild_id: GUILD_ID })));
+      return json(
+        200,
+        Object.entries(CHANNELS).map(([name, id]) => ({ id, name, type: 0, guild_id: GUILD_ID })),
+      );
     }
     if ((m = new RegExp(`^/guilds/${GUILD_ID}/members/([^/]+)$`).exec(path))) {
       const id = m[1] === '@me' ? BOT_ID : m[1];
-      return json(200, { user: { id, username: `u${id}` }, roles: this.memberRoles.get(id) ?? [], nick: null, joined_at: new Date().toISOString() });
+      return json(200, {
+        user: { id, username: `u${id}` },
+        roles: this.memberRoles.get(id) ?? [],
+        nick: null,
+        joined_at: new Date().toISOString(),
+      });
     }
-    if ((m = /^\/users\/([^/]+)$/.exec(path))) return json(200, { id: m[1], username: `u${m[1]}`, global_name: null, discriminator: '0000', avatar: null });
+    if ((m = /^\/users\/([^/]+)$/.exec(path)))
+      return json(200, { id: m[1], username: `u${m[1]}`, global_name: null, discriminator: '0000', avatar: null });
     return json(404, { code: 'NOT_FOUND', message: path });
   }
 

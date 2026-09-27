@@ -126,7 +126,9 @@ describe('comandos e reações', () => {
 
     // O bot põe ✅ e ❌ como "botões".
     await waitFor(() => mock.callsTo('PUT', new RegExp(`/messages/${challenge.id}/reactions/.+/@me$`)).length === 2);
-    const emojis = mock.callsTo('PUT', new RegExp(`/messages/${challenge.id}/reactions/`)).map((c) => decodeURIComponent(c.path.split('/')[6]));
+    const emojis = mock
+      .callsTo('PUT', new RegExp(`/messages/${challenge.id}/reactions/`))
+      .map((c) => decodeURIComponent(c.path.split('/')[6]));
     expect(emojis).toEqual(['✅', '❌']);
 
     // Quem não participa não consegue aceitar.
@@ -199,7 +201,13 @@ describe('comandos e reações', () => {
   it('!ajuda lista os comandos por categoria', async () => {
     const ev = say(GUSTAVO, '!ajuda');
     const reply = await waitFor(() => replyTo(ev));
-    expect(reply.body.embeds[0].fields.map((f: any) => f.name)).toEqual(['Duelos', 'Ranking', 'Times e campeonatos', 'Economia', 'Administração']);
+    expect(reply.body.embeds[0].fields.map((f: any) => f.name)).toEqual([
+      'Duelos',
+      'Ranking',
+      'Times e campeonatos',
+      'Economia',
+      'Administração',
+    ]);
     const one = say(GUSTAVO, '!ajuda rival');
     expect((await waitFor(() => replyTo(one))).body.embeds[0].title).toContain('!rival');
   });
@@ -207,12 +215,30 @@ describe('comandos e reações', () => {
   it('ignora mensagens de bots, de outros servidores e sem prefixo', async () => {
     mock.dispatch('MESSAGE_CREATE', { ...say(GUSTAVO, 'oi pessoal'), id: 'x1' });
     mock.dispatch('MESSAGE_CREATE', {
-      id: 'x2', channel_id: 'c', guild_id: 'outro', channel_type: 0, author: GUSTAVO, type: 0, content: '!ajuda',
-      timestamp: '', mentions: [], mention_roles: [], embeds: [],
+      id: 'x2',
+      channel_id: 'c',
+      guild_id: 'outro',
+      channel_type: 0,
+      author: GUSTAVO,
+      type: 0,
+      content: '!ajuda',
+      timestamp: '',
+      mentions: [],
+      mention_roles: [],
+      embeds: [],
     });
     mock.dispatch('MESSAGE_CREATE', {
-      id: 'x3', channel_id: 'c', guild_id: GUILD_ID, channel_type: 0, author: { ...LUCAS, bot: true }, type: 0, content: '!ajuda',
-      timestamp: '', mentions: [], mention_roles: [], embeds: [],
+      id: 'x3',
+      channel_id: 'c',
+      guild_id: GUILD_ID,
+      channel_type: 0,
+      author: { ...LUCAS, bot: true },
+      type: 0,
+      content: '!ajuda',
+      timestamp: '',
+      mentions: [],
+      mention_roles: [],
+      embeds: [],
     });
     await new Promise((r) => setTimeout(r, 150));
     expect(mock.callsTo('POST', /\/messages$/)).toHaveLength(0);
@@ -233,5 +259,56 @@ describe('comandos e reações', () => {
     expect((await waitFor(() => replyTo(start))).body.content).toMatch(/começou/);
     const liberadas = await waitFor(() => mock.sentWithTitle(/partidas liberadas/)[0]);
     expect(liberadas.body.content).toMatch(/<@100>/);
+  });
+
+  it('!config: só admin; define canal e cargo; mostra a configuração', async () => {
+    const denied = say(GUSTAVO, `!config promo <#${CHANNELS['💸┃promocoes']}>`);
+    expect((await waitFor(() => replyTo(denied))).body.content).toMatch(/Apenas admins/);
+
+    const dono = user(OWNER_ID, 'dono');
+    const setPromo = say(dono, `!config promo <#${CHANNELS['💸┃promocoes']}>`);
+    expect((await waitFor(() => replyTo(setPromo))).body.content).toMatch(/Promoções.*<#7770001>/);
+
+    const badChannel = say(dono, '!config promo <#nao-existe>');
+    expect((await waitFor(() => replyTo(badChannel))).body.content).toMatch(/Mencione o canal|não existe/);
+
+    mock.roles.push({
+      id: '8880001',
+      name: 'Caçadores de Promoção',
+      color: 0,
+      position: 1,
+      permissions: '0',
+      hoist: false,
+      mentionable: true,
+    });
+    mock.dispatch('GUILD_ROLE_CREATE', { guild_id: GUILD_ID, role: mock.roles.at(-1) });
+    await new Promise((r) => setTimeout(r, 50));
+    const setRole = say(dono, '!config promo-role <@&8880001>');
+    expect((await waitFor(() => replyTo(setRole))).body.content).toMatch(/<@&8880001>/);
+
+    const settings = await prisma.guildSettings.findUniqueOrThrow({ where: { guildId: GUILD_ID } });
+    expect(settings).toMatchObject({ promoChannelId: '7770001', promoRoleId: '8880001', language: 'pt-BR' });
+
+    const show = say(dono, '!config');
+    const embed = (await waitFor(() => replyTo(show))).body.embeds[0];
+    expect(embed.fields[0].value).toContain('<#7770001>');
+    expect(embed.fields[1].value).toContain('<@&8880001>');
+
+    const clear = say(dono, '!config promo limpar');
+    await waitFor(() => replyTo(clear));
+    expect((await prisma.guildSettings.findUniqueOrThrow({ where: { guildId: GUILD_ID } })).promoChannelId).toBeNull();
+    mock.roles.pop();
+  });
+
+  it('!setup encontra os canais pelo nome e cria o cargo 🏆 Campeão do Reino', async () => {
+    const ev = say(user(OWNER_ID, 'dono'), '!setup');
+    const reply = await waitFor(() => replyTo(ev));
+    expect(reply.body.content).toMatch(/encontrado <#c-comandos>/);
+    const created = mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/roles$`))[0];
+    expect(created.body.name).toBe('🏆 Campeão do Reino');
+    const settings = await prisma.guildSettings.findUniqueOrThrow({ where: { guildId: GUILD_ID } });
+    expect(settings).toMatchObject({ commandsChannelId: 'c-comandos', scoreboardChannelId: 'c-placar', eventChannelId: 'c-eventos' });
+    expect(settings.championRoleId).toMatch(/^r/);
+    mock.roles = mock.roles.filter((r) => r.id === GUILD_ID);
   });
 });
