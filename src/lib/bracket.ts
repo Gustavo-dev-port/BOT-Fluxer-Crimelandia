@@ -100,10 +100,7 @@ export interface Standing {
 }
 
 /** Classificação do todos contra todos: vitórias, depois menos derrotas, depois confronto direto. */
-export function roundRobinStandings(
-  entries: number[],
-  results: { winner: number; loser: number }[],
-): Standing[] {
+export function roundRobinStandings(entries: number[], results: { winner: number; loser: number }[]): Standing[] {
   const table = new Map<number, Standing>(entries.map((e) => [e, { entry: e, wins: 0, losses: 0 }]));
   for (const r of results) {
     const w = table.get(r.winner);
@@ -112,8 +109,7 @@ export function roundRobinStandings(
     if (l) l.losses++;
   }
   const headToHead = (a: number, b: number) =>
-    results.filter((r) => r.winner === a && r.loser === b).length -
-    results.filter((r) => r.winner === b && r.loser === a).length;
+    results.filter((r) => r.winner === a && r.loser === b).length - results.filter((r) => r.winner === b && r.loser === a).length;
   return [...table.values()].sort(
     (a, b) => b.wins - a.wins || a.losses - b.losses || headToHead(b.entry, a.entry) || entries.indexOf(a.entry) - entries.indexOf(b.entry),
   );

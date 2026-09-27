@@ -77,12 +77,15 @@ describe('bracket', () => {
     }
   });
   it('classificação com desempate por confronto direto', () => {
-    const table = roundRobinStandings([1, 2, 3], [
-      { winner: 2, loser: 1 },
-      { winner: 1, loser: 3 },
-      { winner: 3, loser: 2 },
-      { winner: 2, loser: 3 },
-    ]);
+    const table = roundRobinStandings(
+      [1, 2, 3],
+      [
+        { winner: 2, loser: 1 },
+        { winner: 1, loser: 3 },
+        { winner: 3, loser: 2 },
+        { winner: 2, loser: 3 },
+      ],
+    );
     expect(table[0].entry).toBe(2);
   });
 });

@@ -55,7 +55,10 @@ describe('duelo', () => {
       ['lucas', 984, 0, 1],
     ]);
 
-    const [g, l] = await Promise.all([prisma.player.findUnique({ where: { id: 'gustavo' } }), prisma.player.findUnique({ where: { id: 'lucas' } })]);
+    const [g, l] = await Promise.all([
+      prisma.player.findUnique({ where: { id: 'gustavo' } }),
+      prisma.player.findUnique({ where: { id: 'lucas' } }),
+    ]);
     expect(g!.coins).toBe(25);
     expect(l!.coins).toBe(10);
     expect(result.unlocked.find((u) => u.playerId === 'gustavo')?.achievements.map((a) => a.key)).toContain('first_win');
@@ -116,7 +119,12 @@ describe('times', () => {
     expect(res.winnerSide).toBe(1);
     const season = await getActiveSeason();
     const ranking = await getRanking(prisma, season.id, { mode: 'elo' });
-    expect(ranking.filter((r) => r.rating === 1016).map((r) => r.playerId).sort()).toEqual(['a1', 'a2']);
+    expect(
+      ranking
+        .filter((r) => r.rating === 1016)
+        .map((r) => r.playerId)
+        .sort(),
+    ).toEqual(['a1', 'a2']);
   });
 
   it('times de tamanhos diferentes não podem se enfrentar', async () => {
@@ -133,14 +141,17 @@ describe('campeonato', () => {
     for (const id of players) await register(t.id, p(id));
     await expect(register(t.id, p('p1'))).rejects.toThrow(/já está inscrito/);
 
-    let progress = await startTournament(t.id);
+    const progress = await startTournament(t.id);
     // 5 inscritos → chave de 8 → 1 partida real na 1ª rodada, 3 byes.
     expect(progress.readyMatchIds.length).toBeGreaterThanOrEqual(1);
 
     // Joga todas as partidas prontas até acabar; sempre vence o lado 1.
     let champion: string[] | null = null;
     for (let guard = 0; guard < 20 && !champion; guard++) {
-      const ready = await prisma.match.findMany({ where: { tournamentId: t.id, status: MatchStatus.ACCEPTED }, include: { participants: true } });
+      const ready = await prisma.match.findMany({
+        where: { tournamentId: t.id, status: MatchStatus.ACCEPTED },
+        include: { participants: true },
+      });
       if (!ready.length) break;
       for (const m of ready) {
         const s1 = m.participants.find((x) => x.side === 1)!.playerId;
@@ -180,7 +191,13 @@ describe('campeonato', () => {
 
   it('campeonato em times exige time do tamanho certo e capitão', async () => {
     await createTeam('Alpha', p('a1'), [p('a2')]);
-    const t = await createTournament({ name: 'Duplas', game: 'CS2', format: TournamentFormat.SINGLE_ELIM, teamSize: 2, createdById: 'adm' });
+    const t = await createTournament({
+      name: 'Duplas',
+      game: 'CS2',
+      format: TournamentFormat.SINGLE_ELIM,
+      teamSize: 2,
+      createdById: 'adm',
+    });
     await expect(register(t.id, p('a1'))).rejects.toThrow(/time/);
     await expect(register(t.id, p('a2'), 'Alpha')).rejects.toThrow(/capitão/);
     await register(t.id, p('a1'), 'Alpha');

@@ -26,7 +26,15 @@ describe('parsing de comandos', () => {
 describe('permissões (docs: Permission computation)', () => {
   const guild = '10';
   const roles = [
-    { id: guild, name: '@everyone', color: 0, position: 0, permissions: String(Permission.SEND_MESSAGES), hoist: false, mentionable: false },
+    {
+      id: guild,
+      name: '@everyone',
+      color: 0,
+      position: 0,
+      permissions: String(Permission.SEND_MESSAGES),
+      hoist: false,
+      mentionable: false,
+    },
     { id: 'mod', name: 'Mod', color: 0, position: 2, permissions: String(Permission.MANAGE_GUILD), hoist: false, mentionable: false },
     { id: 'adm', name: 'Adm', color: 0, position: 3, permissions: String(Permission.ADMINISTRATOR), hoist: false, mentionable: false },
   ];
@@ -47,5 +55,23 @@ describe('permissões (docs: Permission computation)', () => {
   it('posição do cargo mais alto', () => {
     expect(highestRolePosition(['mod', 'adm'], roles)).toBe(3);
     expect(highestRolePosition([], roles)).toBe(0);
+  });
+});
+
+describe('nomes de canal', () => {
+  it('ignora emojis, separadores e acentos', async () => {
+    const { normalizeChannelName } = await import('../src/bot/channels.js');
+    expect(normalizeChannelName('📜┃eventos')).toBe('eventos');
+    expect(normalizeChannelName('🎁┃jogos-gratis')).toBe(normalizeChannelName('jogos-grátis'));
+    expect(normalizeChannelName('💸┃promocoes')).toBe('promocoes');
+  });
+});
+
+describe('schema do PostgreSQL', () => {
+  it('está sincronizado com prisma/schema.prisma (rode npm run db:postgres:sync)', async () => {
+    const { readFileSync } = await import('node:fs');
+    // @ts-expect-error script .mjs sem tipos
+    const { toPostgres } = (await import('../scripts/sync-postgres-schema.mjs')) as { toPostgres: (s: string) => string };
+    expect(readFileSync('prisma/postgres/schema.prisma', 'utf8')).toBe(toPostgres(readFileSync('prisma/schema.prisma', 'utf8')));
   });
 });

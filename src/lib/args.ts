@@ -43,5 +43,20 @@ export function parseSmallId(token: string | undefined): number | null {
 
 /** Remove menções e IDs `#n` e junta o resto (ex.: nome de jogo com espaços). */
 export function freeText(tokens: string[]): string {
-  return tokens.filter((t) => !parseUserMention(t) && !/^#\d{1,9}$/.test(t)).join(' ').trim();
+  return tokens
+    .filter((t) => !parseUserMention(t) && !/^#\d{1,9}$/.test(t))
+    .join(' ')
+    .trim();
+}
+
+/** `<#123>` → "123" (menção de canal). */
+export function parseChannelMention(token: string): string | null {
+  const m = /^<#(\d+)>$/.exec(token);
+  return m ? m[1] : null;
+}
+
+/** `<@&123>` → "123" (menção de cargo). */
+export function parseRoleMention(token: string): string | null {
+  const m = /^<@&(\d+)>$/.exec(token);
+  return m ? m[1] : null;
 }

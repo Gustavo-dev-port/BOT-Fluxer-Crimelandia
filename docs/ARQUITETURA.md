@@ -39,6 +39,8 @@ src/
 │
 ├── commands/       Comandos de texto (`!duelo`…), um arquivo por grupo; `index.ts` tem o registro e o `!ajuda`
 ├── lib/args.ts     parsing dos comandos: prefixo, aspas, menções `<@id>`, `#partida`
+├── database/       Repositórios (ex.: GuildSettingsRepository: canais e cargos por servidor)
+├── utils/logger.ts Winston: console + logs/error.log + logs/combined.log
 ├── config.ts       Variáveis de ambiente e constantes
 ├── db.ts           PrismaClient
 └── index.ts        Inicialização
@@ -48,22 +50,23 @@ src/
 
 - **Fluxer, não Discord.** O Fluxer não tem slash commands, botões nem intents. Comandos são mensagens com prefixo; as ações de "botão" são reações numa mensagem registrada em `ReactionPrompt` (mensagem → partida + tipo). O bot recebe todas as mensagens e reações do servidor porque sessões de bot nunca são "passivas" (docs: Event filtering).
 - **Serviços não conhecem o Fluxer.** Eles recebem IDs e retornam dados (ex.: `ConfirmedMatch` inclui variação de ELO, conquistas desbloqueadas e progresso do campeonato). A camada `bot/` decide o que anunciar.
-- **Erros de regra são `UserError`.** O roteador em `interactions.ts` mostra a mensagem ao usuário de forma efêmera; outros erros são registrados no log com uma mensagem genérica.
+- **Erros de regra são `UserError`.** O roteador em `bot/events.ts` responde a mensagem ao usuário; outros erros vão para o log (Winston) e o usuário recebe uma mensagem genérica. `index.ts` também registra `unhandledRejection` e `uncaughtException`.
 - **Operações que mexem em várias tabelas usam transação** (`transaction()` em `db.ts`): confirmar uma partida atualiza stats, moedas, conquistas e a chave de uma vez.
-- **Estatísticas são por temporada** (`PlayerSeasonStats`). Encerrar uma temporada não apaga nada: o histórico continua disponível em `/rank temporada:N`.
+- **Estatísticas são por temporada** (`PlayerSeasonStats`). Encerrar uma temporada não apaga nada: o histórico continua disponível em `!rank N`.
 
 ## Modelo de dados
 
 - `Match` é genérico: um duelo 1v1 e um confronto de times são a mesma coisa, com `MatchParticipant.side` = 1 ou 2. Partidas de campeonato têm `tournamentId`, `round`, `slot` e `entry1Id/entry2Id`.
 - Na eliminação simples, todas as partidas da chave são criadas no início; as futuras ficam `WAITING` até os dois vencedores chegarem. Byes são partidas `CONFIRMED` sem participantes.
-- `Setting` guarda chave/valor: IDs de canais (`channel:placar`…) e da mensagem do placar.
+- `GuildSettings` guarda, por servidor, os canais (comandos, placar, partidas, eventos, promoções, jogos grátis, música), os cargos (promoções, campeão) e o idioma. Valores antigos da tabela `Setting` (`channel:*`) são migrados na primeira leitura.
+- `Setting` guarda chave/valor avulsos, como o ID da mensagem do placar.
 - `ReactionPrompt` liga uma mensagem do bot a uma partida: `challenge` (✅ aceitar / ❌ recusar) ou `confirm` (✅ confirmar / ⚠️ contestar). É apagado quando a partida muda de estado.
 
 ## Estendendo
 
-- **Novo jogo:** `/jogo adicionar` (ou adicione em `defaultGames` no `config.ts`).
+- **Novo jogo:** `!jogo adicionar` (ou adicione em `defaultGames` no `config.ts`).
 - **Novo item da loja:** acrescente em `SHOP_ITEMS` (`src/lib/shop.ts`). Tipos: `title`, `color`, `event_credit`, `role`.
 - **Nova conquista:** acrescente em `ACHIEVEMENTS` (`src/lib/achievements.ts`) com uma função `check`.
 - **Novo comando:** crie um `Command` em `src/commands/` (nome, atalhos, categoria, uso, descrição) e registre em `commands/index.ts`. Ele aparece sozinho no `!ajuda`.
 - **Nova chamada à API do Fluxer:** adicione um método em `src/fluxer/rest.ts` seguindo a rota documentada em docs.fluxer.app, e cubra no servidor falso de `tests/mockFluxer.ts`.
-- **Mudança no banco:** edite `prisma/schema.prisma` e rode `npm run db:migrate -- --name descricao`.
+- **Mudança no banco:** edite `prisma/schema.prisma`, rode `npm run db:migrate -- --name descricao` (SQLite) e `npm run db:postgres:sync`, e crie a migração equivalente em `prisma/postgres/migrations/`. Valide com `npm run test:postgres`.

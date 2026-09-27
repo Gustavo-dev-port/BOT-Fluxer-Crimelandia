@@ -32,9 +32,7 @@ export function computeRivalries(records: DuelRecord[]): Rivalry[] {
   // Mais partidas; empate → confronto mais equilibrado; depois o mais recente.
   return [...map.values()].sort(
     (a, b) =>
-      b.total - a.total ||
-      Math.abs(a.wins - a.losses) - Math.abs(b.wins - b.losses) ||
-      b.lastPlayedAt.getTime() - a.lastPlayedAt.getTime(),
+      b.total - a.total || Math.abs(a.wins - a.losses) - Math.abs(b.wins - b.losses) || b.lastPlayedAt.getTime() - a.lastPlayedAt.getTime(),
   );
 }
 

@@ -9,9 +9,13 @@ import { getRanking, rankingValue } from '../services/ranking.js';
 import { getActiveSeason, type SeasonEndResult } from '../services/seasons.js';
 import { getSetting, setSetting } from '../services/settings.js';
 import { entryLabel, getTournament, type TournamentProgress } from '../services/tournaments.js';
+import { guildSettings } from '../database/guildSettingsRepository.js';
 import { getChannelId, sendTo } from './channels.js';
 import { clip, cmd, Colors, medal, mention, sideLabel, signed, timeTag, versus } from './format.js';
 import { refreshTournamentMessage } from './tournamentView.js';
+import { errorMeta, scoped } from '../utils/logger.js';
+
+const log = scoped('anúncios');
 
 // ─── Reações no lugar de botões ─────────────────────────────────────────────
 
@@ -35,7 +39,9 @@ const PROMPT_EMOJIS: Record<PromptKind, string[]> = {
 export async function attachPrompt(client: FluxerClient, message: Message, kind: PromptKind, matchId: number) {
   await prisma.reactionPrompt.create({ data: { messageId: message.id, channelId: message.channel_id, kind, matchId } });
   for (const emoji of PROMPT_EMOJIS[kind]) {
-    await client.rest.addReaction(message.channel_id, message.id, emoji).catch((err) => console.error('[reações]', err));
+    await client.rest
+      .addReaction(message.channel_id, message.id, emoji)
+      .catch((err: unknown) => log.warn('falha ao adicionar reação', errorMeta(err)));
   }
 }
 
@@ -199,13 +205,13 @@ export async function updateScoreboard(client: FluxerClient) {
     } catch (err) {
       // Mensagem apagada: cria outra abaixo.
       if (!(err instanceof FluxerApiError && err.status === 404)) {
-        console.error('[placar] Falha ao editar:', err);
+        log.error('falha ao editar o placar', errorMeta(err));
         return;
       }
     }
   }
   const sent = await client.send(channelId, payload).catch((err) => {
-    console.error('[placar] Falha ao enviar:', err);
+    log.error('falha ao enviar o placar', errorMeta(err));
     return null;
   });
   if (sent) {
@@ -218,7 +224,7 @@ export async function updateScoreboard(client: FluxerClient) {
 // ─── Temporadas ─────────────────────────────────────────────────────────────
 
 export async function announceSeasonEnd(client: FluxerClient, result: SeasonEndResult) {
-  const roleId = config.season.championRoleId;
+  const roleId = (await guildSettings.getRole(client.guildId, 'champion')) ?? config.season.championRoleId;
   if (roleId && result.championId) {
     // Cargo exclusivo: sai do campeão anterior e vai para o novo.
     const reason = `Campeao da Temporada ${result.endedNumber}`;
@@ -227,7 +233,7 @@ export async function announceSeasonEnd(client: FluxerClient, result: SeasonEndR
     }
     await client.rest
       .addMemberRole(client.guildId, result.championId, roleId, reason)
-      .catch((err) => console.error('[temporada] Falha ao dar cargo de campeão:', err));
+      .catch((err: unknown) => log.error('falha ao dar o cargo de campeão', errorMeta(err)));
   }
 
   const podium = result.finalTop

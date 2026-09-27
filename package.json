@@ -14,7 +14,16 @@
     "db:studio": "prisma studio",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "predev": "prisma migrate deploy",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "db:postgres:sync": "node scripts/sync-postgres-schema.mjs",
+    "db:postgres:generate": "prisma generate --schema prisma/postgres/schema.prisma",
+    "db:postgres:deploy": "prisma migrate deploy --schema prisma/postgres/schema.prisma",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
   },
   "repository": {
     "type": "git",
@@ -28,13 +37,19 @@
     "@prisma/client": "^6.19.3",
     "dotenv": "^18.0.4",
     "node-cron": "^4.6.0",
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.4",
     "@types/ws": "^8.18.1",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
     "vitest": "^5.0.2",
     "ws": "^8.22.0"
   },

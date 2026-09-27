@@ -74,7 +74,9 @@ export const time: Command = {
       const lines = teams.map((t) => `**${t.name}** — ${t.members.length} jogadores · capitão ${mention(t.captainId)}`);
       await ctx.reply({
         ...quiet,
-        embeds: [{ color: Colors.info, title: '🛡️ Times', description: lines.length ? lines.join('\n').slice(0, 4000) : '_Nenhum time criado._' }],
+        embeds: [
+          { color: Colors.info, title: '🛡️ Times', description: lines.length ? lines.join('\n').slice(0, 4000) : '_Nenhum time criado._' },
+        ],
       });
       return;
     }
@@ -82,7 +84,11 @@ export const time: Command = {
     if (sub === 'sair') {
       const name = requireName(ctx);
       const res = await leaveTeam(name, ctx.author.id);
-      const extra = res.disbanded ? ' O time ficou vazio e foi desfeito.' : res.newCaptainId ? ` Novo capitão: ${mention(res.newCaptainId)}.` : '';
+      const extra = res.disbanded
+        ? ' O time ficou vazio e foi desfeito.'
+        : res.newCaptainId
+          ? ` Novo capitão: ${mention(res.newCaptainId)}.`
+          : '';
       await ctx.reply(`👋 Você saiu de **${name}**.${extra}`);
       return;
     }

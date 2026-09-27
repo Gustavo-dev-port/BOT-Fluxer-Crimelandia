@@ -17,6 +17,8 @@ export async function resetDb() {
     prisma.tempRole.deleteMany(),
     prisma.player.deleteMany(),
     prisma.setting.deleteMany(),
+    prisma.guildSettings.deleteMany(),
+    prisma.reactionPrompt.deleteMany(),
   ]);
 }
 

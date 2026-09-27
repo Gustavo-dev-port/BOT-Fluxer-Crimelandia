@@ -22,7 +22,11 @@ export function findItem(id: string): ShopItem | undefined {
 /** Aceita "#ff8800", "ff8800" ou "#f80". */
 export function parseHexColor(input: string): number | null {
   let hex = input.trim().replace(/^#/, '');
-  if (/^[0-9a-f]{3}$/i.test(hex)) hex = hex.split('').map((c) => c + c).join('');
+  if (/^[0-9a-f]{3}$/i.test(hex))
+    hex = hex
+      .split('')
+      .map((c) => c + c)
+      .join('');
   if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
   return parseInt(hex, 16);
 }

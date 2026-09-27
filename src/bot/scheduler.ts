@@ -6,13 +6,16 @@ import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
 import { announceSeasonEnd } from './announcer.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
+import { errorMeta, scoped } from '../utils/logger.js';
+
+const log = scoped('agendador');
 
 function safe(name: string, fn: () => Promise<unknown>) {
   return async () => {
     try {
       await fn();
     } catch (err) {
-      console.error(`[agendador] ${name} falhou:`, err);
+      log.error(`${name} falhou`, errorMeta(err));
     }
   };
 }
@@ -35,7 +38,7 @@ export function startScheduler(client: FluxerClient) {
     '*/5 * * * *',
     safe('manutenção', async () => {
       const expired = await expireStaleChallenges();
-      if (expired.length) console.log(`[agendador] ${expired.length} desafio(s) expirado(s)`);
+      if (expired.length) log.info(`${expired.length} desafio(s) expirado(s)`);
       await removeExpiredRoles(client);
       await closeDueWeeklyEvents(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
@@ -44,7 +47,11 @@ export function startScheduler(client: FluxerClient) {
   );
 
   if (config.weeklyEvent.enabled) {
-    cron.schedule(config.weeklyEvent.openCron, safe('evento semanal', () => openWeeklyEvent(client)), opts);
+    cron.schedule(
+      config.weeklyEvent.openCron,
+      safe('evento semanal', () => openWeeklyEvent(client)),
+      opts,
+    );
   }
-  console.log(`[agendador] ativo (fuso ${config.timezone})`);
+  log.info(`ativo (fuso ${config.timezone})`);
 }

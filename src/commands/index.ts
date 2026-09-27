@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { UserError } from '../lib/types.js';
 import { admin, jogo, setup, temporada } from './admin.js';
 import { campeonato, inscrever } from './campeonato.js';
+import { configCommand } from './config.js';
 import { aceitar, cancelar, confirmar, contestar, duelo, partidas, recusar, resultado } from './duelo.js';
 import { comprar, loja, saldo, titulo } from './economia.js';
 import { perfil, rank, rival, top10 } from './ranking.js';
@@ -81,6 +82,7 @@ export const commands: Command[] = [
   temporada,
   jogo,
   setup,
+  configCommand,
   admin,
 ];
 
