@@ -139,6 +139,10 @@ export class RestClient {
   getCurrentMember(guildId: Snowflake) {
     return this.request<GuildMember>('GET', `/guilds/${guildId}/members/@me`);
   }
+  /** docs: PATCH /guilds/{guild_id}/members/{user_id} — nick null remove o apelido. */
+  modifyMember(guildId: Snowflake, userId: Snowflake, body: { nick?: string | null }, reason?: string) {
+    return this.request<GuildMember>('PATCH', `/guilds/${guildId}/members/${userId}`, { body, reason });
+  }
   addMemberRole(guildId: Snowflake, userId: Snowflake, roleId: Snowflake, reason?: string) {
     return this.request<void>('PUT', `/guilds/${guildId}/members/${userId}/roles/${roleId}`, { reason });
   }

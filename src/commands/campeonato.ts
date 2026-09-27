@@ -1,10 +1,11 @@
-import { announceTournamentProgress } from '../bot/announcer.js';
-import { Colors } from '../bot/format.js';
-import { announceTournament, FORMAT_LABEL, refreshTournamentMessage, tournamentEmbed } from '../bot/tournamentView.js';
+import { announceTournamentProgress } from '../services/notifications/announcer.js';
+import { Colors } from '../embeds/format.js';
+import { announceTournament, refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
+import { FORMAT_LABEL, tournamentEmbed } from '../embeds/tournamentEmbed.js';
 import { config } from '../config.js';
-import { prisma } from '../db.js';
-import { parseSmallId } from '../lib/args.js';
-import { TournamentFormat, UserError } from '../lib/types.js';
+import { prisma } from '../database/client.js';
+import { parseSmallId } from '../utils/args.js';
+import { TournamentFormat, UserError } from '../types/domain.js';
 import { resolveGame } from '../services/games.js';
 import { consumeEventCredit } from '../services/shop.js';
 import {
@@ -33,10 +34,10 @@ const FORMAT_ALIASES: Record<string, TournamentFormat> = {
 
 export const campeonato: Command = {
   name: 'campeonato',
-  aliases: ['camp', 'torneio'],
+  aliases: ['evento', 'eventos', 'camp', 'torneio'],
   category: 'Times e campeonatos',
   usage: '<criar|iniciar|chave|listar|sair|cancelar> ...',
-  description: 'Campeonatos: chave simples ou todos contra todos',
+  description: 'Eventos e campeonatos (1v1, 2v2…): mata-mata ou todos contra todos',
   details: [
     '`!campeonato criar "Nome" <jogo> [mata-mata|todos] [tamanho do time]` — admins, ou com crédito da loja',
     'Ex.: `!campeonato criar "Copa Crimelândia" CS2 mata-mata` · `!campeonato criar "Liga 2v2" Valorant todos 2`',

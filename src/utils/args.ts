@@ -60,3 +60,16 @@ export function parseRoleMention(token: string): string | null {
   const m = /^<@&(\d+)>$/.exec(token);
   return m ? m[1] : null;
 }
+
+/**
+ * Duração da partida: "25min", "25m", "1h", "1h20", "1h20m" → segundos.
+ * Retorna null se o texto não for uma duração.
+ */
+export function parseDuration(token: string): number | null {
+  const t = token.toLowerCase();
+  let m = /^(\d{1,3})\s*(?:m|min|mins|minutos?)$/.exec(t);
+  if (m) return Number(m[1]) * 60;
+  m = /^(\d{1,2})h(?:(\d{1,2})(?:m|min)?)?$/.exec(t);
+  if (m) return Number(m[1]) * 3600 + Number(m[2] ?? 0) * 60;
+  return null;
+}

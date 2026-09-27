@@ -1,8 +1,8 @@
 import { config } from '../config.js';
 import type { FluxerClient } from '../fluxer/client.js';
 import type { Message, MessageCreateEvent, MessagePayload, User } from '../fluxer/types.js';
-import { parseSmallId, parseUserMention } from '../lib/args.js';
-import { UserError } from '../lib/types.js';
+import { parseSmallId, parseUserMention } from '../utils/args.js';
+import { UserError } from '../types/domain.js';
 import type { PlayerRef } from '../services/players.js';
 
 export type Category = 'Duelos' | 'Ranking' | 'Times e campeonatos' | 'Economia' | 'Promoções' | 'Administração';

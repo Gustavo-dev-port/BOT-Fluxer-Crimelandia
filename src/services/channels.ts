@@ -2,7 +2,7 @@ import { config } from '../config.js';
 import { type ChannelKey, guildSettings } from '../database/guildSettingsRepository.js';
 import type { FluxerClient } from '../fluxer/client.js';
 import { ChannelType, type Message, type MessagePayload, type Snowflake } from '../fluxer/types.js';
-import { getSetting } from '../services/settings.js';
+import { getSetting } from './settings.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 export type { ChannelKey };

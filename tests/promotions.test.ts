@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { prisma } from '../src/db.js';
+import { prisma } from '../src/database/client.js';
 import { PromotionRepository } from '../src/database/promotionRepository.js';
 import { formatMoney, promotionContent, promotionEmbed } from '../src/embeds/promotionEmbed.js';
 import { buildAdapters } from '../src/services/promotions/adapters/index.js';

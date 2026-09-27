@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { prisma } from '../src/db.js';
-import { MatchStatus, TournamentFormat, TournamentStatus, UserError } from '../src/lib/types.js';
+import { prisma } from '../src/database/client.js';
+import { MatchStatus, TournamentFormat, TournamentStatus, UserError } from '../src/types/domain.js';
 import {
   acceptDuel,
   adminSetResult,
@@ -250,5 +250,29 @@ describe('perfil, rival e loja', () => {
     const { balance } = await purchase(p('rich'), 'titulo-sniper');
     expect(balance).toBe(100);
     await expect(purchase(p('rich'), 'titulo-sniper')).rejects.toThrow(/já tem/);
+  });
+});
+
+describe('duração da partida', () => {
+  beforeEach(resetDb);
+
+  it('guarda a duração informada e a mostra na média do perfil', async () => {
+    const m = await createDuel(p('a'), p('b'), 'CS2');
+    await acceptDuel('b', m.id);
+    await reportResult('a', 'a', m.id, 1500);
+    const res = await confirmResult('b', m.id);
+    expect(res.match.durationSeconds).toBe(1500);
+    const profile = await getProfile('a');
+    expect(profile!.career.avgDurationSeconds).toBe(1500);
+  });
+
+  it('sem duração informada, mede do aceite até o resultado', async () => {
+    const m = await createDuel(p('a'), p('b'), 'CS2');
+    await acceptDuel('b', m.id);
+    await prisma.match.update({ where: { id: m.id }, data: { acceptedAt: new Date(Date.now() - 20 * 60_000) } });
+    await reportResult('a', 'b', m.id);
+    const res = await confirmResult('b', m.id);
+    expect(res.match.durationSeconds).toBeGreaterThanOrEqual(1199);
+    expect(res.match.durationSeconds).toBeLessThanOrEqual(1210);
   });
 });

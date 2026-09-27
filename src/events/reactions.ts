@@ -1,55 +1,18 @@
-/**
- * Liga os eventos do Gateway às ações do bot:
- * - MESSAGE_CREATE → comandos de texto (`!duelo`, `!rank`…)
- * - MESSAGE_REACTION_ADD/REMOVE → reações que substituem botões (✅/❌/⚠️) e inscrições por ✅
- */
-import { findCommand } from '../commands/index.js';
-import { CommandContext, refOf, usageOf } from '../commands/types.js';
-import { config } from '../config.js';
-import { prisma } from '../db.js';
+/** MESSAGE_REACTION_ADD/REMOVE: reações que substituem botões (✅/❌/⚠️) e inscrições por ✅. */
+import { refOf } from '../commands/types.js';
+import { prisma } from '../database/client.js';
 import type { FluxerClient } from '../fluxer/client.js';
-import type { MessageCreateEvent, MessagePayload, ReactionEvent, User } from '../fluxer/types.js';
-import { parseCommand } from '../lib/args.js';
-import { TournamentStatus, UserError } from '../lib/types.js';
+import type { MessagePayload, ReactionEvent, User } from '../fluxer/types.js';
+import { TournamentStatus, UserError } from '../types/domain.js';
 import { findByMessage, register, unregister } from '../services/tournaments.js';
-import { Emoji } from './announcer.js';
-import { getChannelId } from './channels.js';
-import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from './duelActions.js';
-import { mention } from './format.js';
-import { JOIN_EMOJI, refreshTournamentMessage } from './tournamentView.js';
+import { Emoji } from '../embeds/matchEmbeds.js';
+import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute } from '../services/notifications/duelActions.js';
+import { mention } from '../embeds/format.js';
+import { refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
+import { JOIN_EMOJI } from '../embeds/tournamentEmbed.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
-const log = scoped('eventos');
-
-/** Comandos que admins usam em qualquer canal, mesmo com a restrição a #comandos. */
-const ANYWHERE = new Set(['setup', 'admin']);
-
-export async function onMessageCreate(client: FluxerClient, message: MessageCreateEvent) {
-  if (message.guild_id !== client.guildId) return; // só o servidor configurado; ignora DMs
-  if (message.author.bot || message.webhook_id) return;
-
-  const parsed = parseCommand(message.content, config.prefix);
-  if (!parsed) return;
-  const command = findCommand(parsed.name);
-  if (!command) return;
-
-  const ctx = new CommandContext(client, message, parsed.name, parsed.args, parsed.rest);
-  ctx.usageText = usageOf(command);
-  try {
-    if (command.adminOnly) await ctx.requireAdmin();
-    if (config.restrictToCommandsChannel && !ANYWHERE.has(command.name) && !(await ctx.isAdmin())) {
-      const allowed = await getChannelId(client, 'commands');
-      if (allowed && message.channel_id !== allowed) throw new UserError(`Use os comandos do bot em <#${allowed}>.`);
-    }
-    log.info(`!${command.name}`, { user: message.author.id, channel: message.channel_id, args: parsed.args.length });
-    await command.execute(ctx);
-  } catch (err) {
-    const text = err instanceof UserError ? `❌ ${err.message}` : '❌ Algo deu errado. Tente novamente em instantes.';
-    if (!(err instanceof UserError))
-      log.error(`comando ${command.name} falhou`, { user: message.author.id, content: message.content, ...errorMeta(err) });
-    await ctx.reply(text).catch((e: unknown) => log.error('falha ao responder comando', errorMeta(e)));
-  }
-}
+const log = scoped('reações');
 
 async function userOf(client: FluxerClient, event: ReactionEvent): Promise<User> {
   return event.member?.user ?? (await client.rest.getUser(event.user_id));

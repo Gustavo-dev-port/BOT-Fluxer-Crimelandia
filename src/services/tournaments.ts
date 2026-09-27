@@ -1,8 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import { config } from '../config.js';
-import { type Db, prisma, transaction } from '../db.js';
-import { advanceTarget, roundCount, roundRobin, roundRobinStandings, singleEliminationBracket } from '../lib/bracket.js';
-import { MatchStatus, OPEN_STATUSES, type Side, TournamentFormat, TournamentStatus, UserError } from '../lib/types.js';
+import { type Db, prisma, transaction } from '../database/client.js';
+import { advanceTarget, roundCount, roundRobin, roundRobinStandings, singleEliminationBracket } from './rules/bracket.js';
+import { MatchStatus, OPEN_STATUSES, type Side, TournamentFormat, TournamentStatus, UserError } from '../types/domain.js';
 import { addCoins } from './economy.js';
 import { ensurePlayer, type PlayerRef } from './players.js';
 import { getActiveSeason } from './seasons.js';

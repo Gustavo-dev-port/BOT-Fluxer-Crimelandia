@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import type { Db } from '../db.js';
+import type { Db } from '../database/client.js';
 
 export type RankingMode = 'pontos' | 'elo';
 

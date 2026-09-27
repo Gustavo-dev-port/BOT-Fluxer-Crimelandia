@@ -1,10 +1,10 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
 import type { FluxerClient } from '../fluxer/client.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
-import { announceSeasonEnd } from './announcer.js';
+import { announceSeasonEnd } from '../services/notifications/announcer.js';
 import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
@@ -30,6 +30,17 @@ async function removeExpiredRoles(client: FluxerClient) {
   }
 }
 
+/** Devolve o apelido original de quem tinha um apelido especial vencido. */
+export async function restoreExpiredNicknames(client: FluxerClient, now = new Date()) {
+  const expired = await prisma.tempNickname.findMany({ where: { expiresAt: { lte: now } } });
+  for (const t of expired) {
+    await client.rest
+      .modifyMember(client.guildId, t.playerId, { nick: t.previousNick }, 'Apelido especial expirou')
+      .catch((err: unknown) => log.warn('falha ao devolver apelido', { user: t.playerId, ...errorMeta(err) }));
+    await prisma.tempNickname.delete({ where: { playerId: t.playerId } });
+  }
+}
+
 export function startScheduler(client: FluxerClient) {
   const opts = { timezone: config.timezone };
 
@@ -40,6 +51,7 @@ export function startScheduler(client: FluxerClient) {
       const expired = await expireStaleChallenges();
       if (expired.length) log.info(`${expired.length} desafio(s) expirado(s)`);
       await removeExpiredRoles(client);
+      await restoreExpiredNicknames(client);
       await closeDueWeeklyEvents(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
     }),

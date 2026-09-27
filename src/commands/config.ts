@@ -1,9 +1,9 @@
-import { Colors } from '../bot/format.js';
+import { Colors } from '../embeds/format.js';
 import { config as appConfig } from '../config.js';
 import { CHANNEL_FIELDS, type ChannelKey, guildSettings, ROLE_FIELDS, type RoleKey } from '../database/guildSettingsRepository.js';
 import { ChannelType } from '../fluxer/types.js';
-import { parseChannelMention, parseRoleMention } from '../lib/args.js';
-import { UserError } from '../lib/types.js';
+import { parseChannelMention, parseRoleMention } from '../utils/args.js';
+import { UserError } from '../types/domain.js';
 import type { Command, CommandContext } from './types.js';
 
 /** Nome usado no comando → canal em GuildSettings. */

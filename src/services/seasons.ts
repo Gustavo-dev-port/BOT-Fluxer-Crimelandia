@@ -1,12 +1,19 @@
 import { config } from '../config.js';
-import { type Db, prisma, transaction } from '../db.js';
-import { softReset } from '../lib/elo.js';
-import type { Achievement } from '../lib/achievements.js';
+import { type Db, prisma, transaction } from '../database/client.js';
+import { startOfNextMonth } from '../utils/calendar.js';
+import { softReset } from './rules/elo.js';
+import type { Achievement } from './rules/achievements.js';
 import { checkAchievements } from './achievements.js';
 import { addCoins } from './economy.js';
 import { getRanking, type RankingRow } from './ranking.js';
 
 const DAY = 86_400_000;
+
+/** Fim da próxima temporada: virada do mês (padrão) ou SEASON_DAYS dias. */
+export function nextSeasonEnd(now: Date): Date {
+  if (config.season.mode === 'days') return new Date(now.getTime() + config.season.durationDays * DAY);
+  return startOfNextMonth(now, config.timezone);
+}
 
 /** Temporada ativa; cria a Temporada 1 no primeiro uso. */
 export async function getActiveSeason(db: Db = prisma) {
@@ -16,7 +23,7 @@ export async function getActiveSeason(db: Db = prisma) {
   return db.season.create({
     data: {
       number: (last?.number ?? 0) + 1,
-      endsAt: new Date(Date.now() + config.season.durationDays * DAY),
+      endsAt: nextSeasonEnd(new Date()),
     },
   });
 }
@@ -59,7 +66,7 @@ export async function endActiveSeason(): Promise<SeasonEndResult> {
     const next = await tx.season.create({
       data: {
         number: season.number + 1,
-        endsAt: new Date(Date.now() + config.season.durationDays * DAY),
+        endsAt: nextSeasonEnd(new Date()),
       },
     });
 

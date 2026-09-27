@@ -1,6 +1,6 @@
-import { prisma, transaction } from '../db.js';
-import { findItem, type ShopItem } from '../lib/shop.js';
-import { UserError } from '../lib/types.js';
+import { prisma, transaction } from '../database/client.js';
+import { findItem, type ShopItem } from './rules/shop.js';
+import { UserError } from '../types/domain.js';
 import { spendCoins } from './economy.js';
 import { ensurePlayer, type PlayerRef } from './players.js';
 

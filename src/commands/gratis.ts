@@ -1,4 +1,4 @@
-import { timeTag } from '../bot/format.js';
+import { timeTag } from '../embeds/format.js';
 import { FreeGameRepository } from '../database/freeGameRepository.js';
 import { getFreeGameService } from '../schedulers/freeGameScheduler.js';
 import type { Command } from './types.js';

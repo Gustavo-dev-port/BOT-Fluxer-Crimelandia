@@ -1,8 +1,8 @@
 import { config } from '../config.js';
-import { prisma } from '../db.js';
+import { prisma } from '../database/client.js';
 import type { MatchWithParticipants } from '../services/matches.js';
 import { playersOnSide } from '../services/matches.js';
-import type { Side } from '../lib/types.js';
+import type { Side } from '../types/domain.js';
 
 export const Colors = {
   primary: 0x7c3aed,
@@ -55,6 +55,15 @@ export const STATUS_LABEL: Record<string, string> = {
   EXPIRED: '⌛ Expirada',
   WAITING: '🕓 Aguardando adversário',
 };
+
+/** 1500 → "25 min"; 4800 → "1h20". */
+export function formatDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
 
 /** Nome de comando com o prefixo, em negrito: **!duelo** */
 export const cmd = (name: string) => `**${config.prefix}${name}**`;

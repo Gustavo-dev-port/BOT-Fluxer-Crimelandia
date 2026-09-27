@@ -1,10 +1,11 @@
-import { updateScoreboard } from './bot/announcer.js';
-import { onMessageCreate, onReaction } from './bot/events.js';
-import { startScheduler } from './bot/scheduler.js';
+import { updateScoreboard } from './services/notifications/announcer.js';
+import { onMessageCreate } from './events/messageCreate.js';
+import { onReaction } from './events/reactions.js';
+import { startScheduler } from './schedulers/maintenanceScheduler.js';
 import { startFreeGameScheduler } from './schedulers/freeGameScheduler.js';
 import { startPromotionScheduler } from './schedulers/promotionScheduler.js';
 import { config } from './config.js';
-import { prisma } from './db.js';
+import { prisma } from './database/client.js';
 import { FluxerClient } from './fluxer/client.js';
 import { BOT_PERMISSIONS } from './fluxer/permissions.js';
 import type { MessageCreateEvent, ReactionEvent } from './fluxer/types.js';

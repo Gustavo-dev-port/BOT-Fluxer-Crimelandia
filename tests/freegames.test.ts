@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { prisma } from '../src/db.js';
+import { prisma } from '../src/database/client.js';
 import { FreeGameRepository } from '../src/database/freeGameRepository.js';
 import { freeGameEmbed } from '../src/embeds/freeGameEmbed.js';
 import { FreeGameService, type FreeGamePublisher, selectCurrent } from '../src/services/freeGames/freeGameService.js';

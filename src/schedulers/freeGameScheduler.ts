@@ -1,6 +1,6 @@
 /** Roda o módulo de jogos grátis no intervalo configurado (padrão: a cada 1 hora). */
 import cron from 'node-cron';
-import { FluxerFreeGamePublisher } from '../bot/freeGamePublisher.js';
+import { FluxerFreeGamePublisher } from '../services/notifications/freeGamePublisher.js';
 import { config } from '../config.js';
 import { FreeGameRepository } from '../database/freeGameRepository.js';
 import type { FluxerClient } from '../fluxer/client.js';

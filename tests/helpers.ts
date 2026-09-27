@@ -1,4 +1,4 @@
-import { prisma } from '../src/db.js';
+import { prisma } from '../src/database/client.js';
 
 /** Limpa todas as tabelas entre testes. */
 export async function resetDb() {
@@ -15,6 +15,7 @@ export async function resetDb() {
     prisma.playerTitle.deleteMany(),
     prisma.playerAchievement.deleteMany(),
     prisma.tempRole.deleteMany(),
+    prisma.tempNickname.deleteMany(),
     prisma.player.deleteMany(),
     prisma.setting.deleteMany(),
     prisma.guildSettings.deleteMany(),

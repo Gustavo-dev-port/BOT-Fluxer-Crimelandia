@@ -1,11 +1,11 @@
 /** Publica jogos grátis no canal configurado do Fluxer. */
-import { config } from '../config.js';
-import { freeGameEmbed } from '../embeds/freeGameEmbed.js';
-import type { FluxerClient } from '../fluxer/client.js';
-import type { FreeGamePublisher } from '../services/freeGames/freeGameService.js';
-import type { FreeGameOffer } from '../services/freeGames/types.js';
-import { errorMeta, scoped } from '../utils/logger.js';
-import { getChannelId } from './channels.js';
+import { config } from '../../config.js';
+import { freeGameEmbed } from '../../embeds/freeGameEmbed.js';
+import type { FluxerClient } from '../../fluxer/client.js';
+import type { FreeGamePublisher } from '../freeGames/freeGameService.js';
+import type { FreeGameOffer } from '../freeGames/types.js';
+import { errorMeta, scoped } from '../../utils/logger.js';
+import { getChannelId } from '../channels.js';
 
 const log = scoped('jogos grátis');
 

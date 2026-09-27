@@ -28,6 +28,7 @@ model Player {
   titles       PlayerTitle[]
   achievements PlayerAchievement[]
   tempRoles    TempRole[]
+  tempNickname TempNickname?
 }
 
 model Season {
@@ -89,27 +90,29 @@ model TeamMember {
 }
 
 model Match {
-  id           Int       @id @default(autoincrement())
-  seasonId     Int
-  game         String
-  status       String // PENDING | ACCEPTED | AWAITING_CONFIRMATION | DISPUTED | CONFIRMED | DECLINED | CANCELLED | EXPIRED | WAITING
-  challengerId String?
-  team1Id      Int?
-  team2Id      Int?
-  reportedById String?
-  reportedSide Int?
-  winnerSide   Int?
-  tournamentId Int?
-  round        Int?
-  slot         Int?
-  entry1Id     Int?
-  entry2Id     Int?
-  channelId    String?
-  messageId    String?
-  createdAt    DateTime  @default(now())
-  acceptedAt   DateTime?
-  reportedAt   DateTime?
-  confirmedAt  DateTime?
+  id              Int       @id @default(autoincrement())
+  seasonId        Int
+  game            String
+  status          String // PENDING | ACCEPTED | AWAITING_CONFIRMATION | DISPUTED | CONFIRMED | DECLINED | CANCELLED | EXPIRED | WAITING
+  challengerId    String?
+  team1Id         Int?
+  team2Id         Int?
+  reportedById    String?
+  reportedSide    Int?
+  winnerSide      Int?
+  tournamentId    Int?
+  round           Int?
+  slot            Int?
+  entry1Id        Int?
+  entry2Id        Int?
+  channelId       String?
+  messageId       String?
+  createdAt       DateTime  @default(now())
+  acceptedAt      DateTime?
+  reportedAt      DateTime?
+  confirmedAt     DateTime?
+  /// Duração da partida em segundos (informada no !resultado ou medida do aceite ao resultado)
+  durationSeconds Int?
 
   season       Season             @relation(fields: [seasonId], references: [id])
   tournament   Tournament?        @relation(fields: [tournamentId], references: [id])
@@ -203,6 +206,16 @@ model PlayerAchievement {
   player Player @relation(fields: [playerId], references: [id])
 
   @@unique([playerId, key])
+}
+
+/// Apelido especial comprado na loja; o anterior volta quando expira.
+model TempNickname {
+  playerId     String   @id
+  nick         String
+  previousNick String?
+  expiresAt    DateTime
+
+  player Player @relation(fields: [playerId], references: [id])
 }
 
 model TempRole {

@@ -1,5 +1,5 @@
-import type { Db } from '../db.js';
-import { UserError } from '../lib/types.js';
+import type { Db } from '../database/client.js';
+import { UserError } from '../types/domain.js';
 
 export async function addCoins(db: Db, playerId: string, amount: number, reason: string): Promise<number> {
   const player = await db.player.update({ where: { id: playerId }, data: { coins: { increment: amount } } });

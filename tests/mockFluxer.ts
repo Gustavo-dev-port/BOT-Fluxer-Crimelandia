@@ -174,6 +174,14 @@ export class MockFluxer {
     if (req.method === 'POST' && path === `/guilds/${GUILD_ID}/channels`) {
       return json(200, { id: `c${this.nextMessageId++}`, name: body.name, type: body.type, guild_id: GUILD_ID });
     }
+    if (req.method === 'PATCH' && (m = new RegExp(`^/guilds/${GUILD_ID}/members/([^/]+)$`).exec(path))) {
+      return json(200, {
+        user: { id: m[1], username: `u${m[1]}` },
+        roles: [],
+        nick: body?.nick ?? null,
+        joined_at: new Date().toISOString(),
+      });
+    }
     if (req.method === 'PUT' || req.method === 'DELETE') return json(204);
     if (path === `/guilds/${GUILD_ID}`) return json(200, { id: GUILD_ID, name: 'Crimelândia', owner_id: OWNER_ID });
     if (path === `/guilds/${GUILD_ID}/roles`) return json(200, this.roles);
