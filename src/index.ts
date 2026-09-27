@@ -1,6 +1,10 @@
 import { updateScoreboard } from './services/notifications/announcer.js';
 import { onMessageCreate } from './events/messageCreate.js';
+import { updateHallOfFame } from './services/notifications/hallAnnouncer.js';
 import { onReaction } from './events/reactions.js';
+import { onVoiceEvent } from './events/voiceState.js';
+import { trackVoice } from './services/notifications/missionTracker.js';
+import { trackRooms } from './services/notifications/voiceRooms.js';
 import { startScheduler } from './schedulers/maintenanceScheduler.js';
 import { startFreeGameScheduler } from './schedulers/freeGameScheduler.js';
 import { startPromotionScheduler } from './schedulers/promotionScheduler.js';
@@ -11,6 +15,7 @@ import { BOT_PERMISSIONS } from './fluxer/permissions.js';
 import type { MessageCreateEvent, ReactionEvent } from './fluxer/types.js';
 import { seedDefaultGames } from './services/games.js';
 import { getActiveSeason } from './services/seasons.js';
+import { ensureDailyMissions } from './services/missions.js';
 import { errorMeta, scoped } from './utils/logger.js';
 
 const log = scoped('bot');
@@ -18,6 +23,9 @@ const gatewayLog = scoped('gateway');
 
 const client = await FluxerClient.create(config.instanceUrl, config.token(), config.guildId());
 let started = false;
+// Missões de voz: liga o rastreador antes de chegar o GUILD_CREATE com quem já está em voz.
+trackVoice(client);
+trackRooms(client);
 
 client.gateway.on('ready', async (user) => {
   log.info(`conectado ao Fluxer como ${user.username} (${user.id})`);
@@ -26,9 +34,11 @@ client.gateway.on('ready', async (user) => {
   started = true;
   log.info(`link de convite: ${client.inviteUrl(config.token(), BOT_PERMISSIONS)}`);
   await seedDefaultGames();
+  await ensureDailyMissions();
   const season = await getActiveSeason();
   log.info(`Temporada ${season.number} ativa até ${season.endsAt.toISOString()}`);
   await updateScoreboard(client).catch((err: unknown) => log.error('falha ao atualizar o placar', errorMeta(err)));
+  await updateHallOfFame(client).catch((err: unknown) => log.error('falha ao atualizar o Hall do Reino', errorMeta(err)));
   startScheduler(client);
   startPromotionScheduler(client);
   startFreeGameScheduler(client);
@@ -39,6 +49,7 @@ client.gateway.on('dispatch', (event, data) => {
   if (event === 'MESSAGE_CREATE') run(onMessageCreate(client, data as MessageCreateEvent));
   else if (event === 'MESSAGE_REACTION_ADD') run(onReaction(client, data as ReactionEvent, true));
   else if (event === 'MESSAGE_REACTION_REMOVE') run(onReaction(client, data as ReactionEvent, false));
+  else onVoiceEvent(client, event, data);
 });
 
 client.gateway.on('close', (code, reason) => gatewayLog.warn(`conexão fechada (${code}) ${reason}`));

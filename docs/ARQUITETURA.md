@@ -10,27 +10,36 @@ src/
 │
 ├── events/          Eventos do Gateway do Fluxer
 │   ├── messageCreate.ts MESSAGE_CREATE → acha o comando, checa permissão/canal, executa, trata erros
-│   └── reactions.ts     MESSAGE_REACTION_ADD/REMOVE → ✅/❌/⚠️ nos prompts de partida e ✅ nas inscrições
+│   ├── reactions.ts     MESSAGE_REACTION_ADD/REMOVE → ✅/❌/⚠️ nos prompts, ✅ nas inscrições, 1️⃣–5️⃣ na votação do Night Fluxer
+│   └── voiceState.ts    GUILD_CREATE / VOICE_STATE_UPDATE / PASSIVE_UPDATES → presença em voz
 │
 ├── services/        Regras de negócio
-│   ├── rules/           lógica pura, sem banco nem API: elo, tiers, bracket, rivalry, achievements, shop
+│   ├── rules/           lógica pura, sem banco nem API: elo, tiers, bracket, rivalry, achievements, shop, honors (títulos e classe),
+│   │                    missions (catálogo e sorteio do dia), night (votação e sorteio de equipes), voiceRooms
 │   ├── matches.ts       ciclo de vida do duelo: desafio → aceite → resultado → confirmação (ELO, pontos, moedas, conquistas, duração)
 │   ├── tournaments.ts   eventos/campeonatos: inscrições, chave, avanço de vencedores, campeão
 │   ├── seasons.ts       temporada mensal: ativa, encerramento, reset
+│   ├── missions.ts      missões diárias: geração, progresso (fila por jogador) e coleta
+│   ├── night.ts         Night Fluxer: evento, votos, fechamento com sorteio de equipes, encerramento
+│   ├── voicePresence.ts quem está em qual sala de voz; minutos e entradas (missões) e ocupação (salas temporárias)
+│   ├── hallOfFame.ts    Hall do Reino: campeão, MVP da semana, mais ativo, maior sequência, mais vitórias, mais FluxCoins
 │   ├── ranking.ts, profile.ts, teams.ts, games.ts, shop.ts, economy.ts, achievements.ts, players.ts, settings.ts
 │   ├── promotions/      adaptadores por loja (steam, epic, gog, humble, itad) + promotionService
 │   ├── freeGames/       fontes (epic, itadGiveaways) + freeGameService
 │   ├── notifications/   o que fala com o Fluxer: announcer (#partidas, #placar, fim de temporada, prompts de reação),
-│   │                    duelActions, tournamentAnnouncer, promotionPublisher, freeGamePublisher
+│   │                    duelActions, tournamentAnnouncer, promotionPublisher, freeGamePublisher, hallAnnouncer,
+│   │                    missionTracker (eventos → missões, aviso de conclusão), voiceRooms (!grupo e limpeza),
+│   │                    pinnedMessage (mensagem fixada sempre atualizada: #placar e #hall-do-reino)
 │   └── channels.ts      canal configurado (GuildSettings) ou encontrado pelo nome
 │
 ├── database/        Acesso ao banco (Prisma)
 │   ├── client.ts        PrismaClient e transaction()
 │   └── *Repository.ts   GuildSettingsRepository, PromotionRepository, FreeGameRepository
 │
-├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, format (menções, datas, moedas)
-├── schedulers/      Tarefas agendadas: manutenção (5 min), evento semanal, promoções (30 min), jogos grátis (1 h)
-├── utils/           logger (Winston), http (fetch com tempo limite e logs sem credenciais), args (parsing), calendar (fuso horário)
+├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, hallEmbed, format (menções, datas, barras de progresso, paleta)
+├── schedulers/      Tarefas agendadas: manutenção (5 min), voz e salas vazias (1 min), Hall do Reino (10 min), missões (00:00),
+│                    Night Fluxer (weeklyEvent.ts), promoções (30 min), jogos grátis (1 h)
+├── utils/           logger (Winston, com missions/voice/night.log), queue (filas de escrita), http (fetch com tempo limite e logs sem credenciais), args (parsing), calendar (fuso horário)
 ├── types/           domain.ts: status, formatos e UserError
 │
 ├── fluxer/          Cliente da API do Fluxer, escrito a partir de docs.fluxer.app
@@ -60,25 +69,29 @@ src/
       Isso permite testá-los sem rede e sem Fluxer.
   - Só `services/notifications/` e `events/` falam com o Fluxer.
 - **Erros de regra são `UserError`.** `events/messageCreate.ts` responde a mensagem ao usuário. Outros erros vão para o log (Winston) e o usuário recebe uma mensagem genérica. `index.ts` também registra `unhandledRejection` e `uncaughtException`.
+- **Rajadas de eventos são enfileiradas.** No SQLite, muitas escritas simultâneas (ex.: todos reagindo ao Night Fluxer) estouram o tempo de espera do banco. Reações, progresso de missões e entradas/saídas das salas temporárias passam por filas próprias (`utils/queue.ts`), uma tarefa por vez. São filas separadas para uma não esperar a outra (uma reação ✅ que confirma partida gera progresso de missão).
 - **Operações que mexem em várias tabelas usam transação** (`transaction()` em `database/client.ts`). Confirmar uma partida atualiza estatísticas, moedas, conquistas e a chave de uma vez.
 - **Fontes externas são lidas de forma defensiva.** Um item com formato inesperado é descartado, e uma loja com erro não derruba as outras.
 
 ## Modelo de dados
 
-| Tabela                                                | Para quê                                                                                    |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GuildSettings`                                       | Canais, cargos e idioma por servidor (`!config`)                                            |
-| `Player`                                              | Jogador; saldo de FluxCoins, título equipado                                                |
-| `Transaction`                                         | Extrato da economia (ganhos e gastos de FluxCoins)                                          |
-| `Season`, `PlayerSeasonStats`                         | Temporadas mensais e estatísticas por temporada (histórico mantido)                         |
-| `Match`, `MatchParticipant`                           | Partidas 1v1 ou em time: vencedor/perdedor (`side`), jogo, duração, datas                   |
-| `Tournament`, `TournamentEntry`                       | Eventos/campeonatos e inscrições                                                            |
-| `Team`, `TeamMember`                                  | Times                                                                                       |
-| `Promotion`                                           | Promoções vistas/publicadas (não repete, edita quando o preço muda)                         |
-| `FreeGame`                                            | Jogos grátis vistos/publicados                                                              |
-| `ReactionPrompt`                                      | Mensagens que esperam reação (substitutas dos botões)                                       |
-| `TempRole`, `TempNickname`                            | Itens temporários da loja (cargos, cor, apelido especial)                                   |
-| `Game`, `PlayerTitle`, `PlayerAchievement`, `Setting` | Jogos disponíveis, títulos comprados, conquistas, valores avulsos (ex.: mensagem do placar) |
+| Tabela                                                | Para quê                                                                                       |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GuildSettings`                                       | Canais (inclusive `hallChannelId`), cargos e idioma por servidor (`!config`)                   |
+| `Player`                                              | Jogador; saldo de FluxCoins, título equipado                                                   |
+| `Transaction`                                         | Extrato da economia (ganhos e gastos de FluxCoins)                                             |
+| `Season`, `PlayerSeasonStats`                         | Temporadas mensais e estatísticas por temporada (histórico mantido)                            |
+| `Match`, `MatchParticipant`                           | Partidas 1v1 ou em time: vencedor/perdedor (`side`), jogo, duração, datas                      |
+| `Tournament`, `TournamentEntry`                       | Eventos/campeonatos e inscrições                                                               |
+| `Team`, `TeamMember`                                  | Times                                                                                          |
+| `Promotion`                                           | Promoções vistas/publicadas (não repete, edita quando o preço muda)                            |
+| `FreeGame`                                            | Jogos grátis vistos/publicados                                                                 |
+| `DailyMission`, `PlayerMission`                       | Missões do dia e o progresso/coleta de cada jogador                                            |
+| `WeeklyEvent`, `EventVote`, `EventTeam`               | Night Fluxer: votação, votos, equipes sorteadas e suas salas de voz (a chave é o `Tournament`) |
+| `VoiceRoom`                                           | Salas de voz temporárias do `!grupo` (líder, limite, privacidade, hash da senha)               |
+| `ReactionPrompt`                                      | Mensagens que esperam reação (substitutas dos botões)                                          |
+| `TempRole`, `TempNickname`                            | Itens temporários da loja (cargos, cor, apelido especial)                                      |
+| `Game`, `PlayerTitle`, `PlayerAchievement`, `Setting` | Jogos disponíveis, títulos comprados, conquistas, valores avulsos (ex.: mensagem do placar)    |
 
 Alguns nomes da especificação correspondem a tabelas com outro nome:
 
@@ -87,6 +100,9 @@ Alguns nomes da especificação correspondem a tabelas com outro nome:
 | `Economy`        | `Player.coins` + `Transaction`                                           |
 | `Event`          | `Tournament`                                                             |
 | `MusicHistory`   | não existe, porque o módulo de música não roda no Fluxer (veja o README) |
+| `MusicQueue`     | não existe (mesmo motivo)                                                |
+| `WeeklyVote`     | `EventVote` (a especificação usa os dois nomes)                          |
+| `Rivalry`        | calculada na hora a partir das partidas (`rules/rivalry.ts`), sem tabela |
 
 Outras notas:
 

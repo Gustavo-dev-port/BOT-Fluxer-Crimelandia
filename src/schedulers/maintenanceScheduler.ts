@@ -5,7 +5,11 @@ import { prisma } from '../database/client.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
 import { announceSeasonEnd } from '../services/notifications/announcer.js';
-import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
+import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
+import { announceDailyMissions } from '../services/notifications/missionTracker.js';
+import { voicePresence } from '../services/voicePresence.js';
+import { cleanupEmptyRooms } from '../services/notifications/voiceRooms.js';
+import { cleanupEndedNights, closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 const log = scoped('agendador');
@@ -53,8 +57,33 @@ export function startScheduler(client: FluxerClient) {
       await removeExpiredRoles(client);
       await restoreExpiredNicknames(client);
       await closeDueWeeklyEvents(client);
+      await cleanupEndedNights(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
     }),
+    opts,
+  );
+
+  // Missões diárias: 3 novas à meia-noite (fuso TIMEZONE).
+  cron.schedule(
+    '0 0 * * *',
+    safe('missões diárias', () => announceDailyMissions(client)),
+    opts,
+  );
+
+  // A cada minuto: minutos em voz (progresso em tempo real) e salas temporárias vazias.
+  cron.schedule(
+    '* * * * *',
+    safe('voz', async () => {
+      voicePresence.flush();
+      await cleanupEmptyRooms(client);
+    }),
+    opts,
+  );
+
+  // Hall do Reino a cada 10 minutos.
+  cron.schedule(
+    '*/10 * * * *',
+    safe('hall do reino', () => updateHallOfFame(client)),
     opts,
   );
 

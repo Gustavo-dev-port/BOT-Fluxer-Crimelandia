@@ -25,6 +25,7 @@ const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
   events: 'Inscrição para campeonatos',
   promo: 'Promoções de jogos com 40%+ de desconto (atualizado a cada 30 min)',
   freeGames: 'Jogos grátis da Epic, Steam e GOG (atualizado a cada hora)',
+  hall: 'Hall do Reino: os destaques da comunidade (atualizado a cada 10 min)',
 };
 
 /** Nomes com emoji usados ao criar; se o Fluxer recusar, cria com o nome simples. */
@@ -32,6 +33,7 @@ const DECORATED_NAMES: Partial<Record<ChannelKey, string>> = {
   promo: '💸┃promocoes',
   freeGames: '🎁┃jogos-gratis',
   events: '📜┃eventos',
+  hall: '🏰┃hall-do-reino',
 };
 
 export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';
@@ -40,7 +42,8 @@ export const setup: Command = {
   name: 'setup',
   category: 'Administração',
   usage: '',
-  description: 'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes, #jogos-gratis) e o cargo de campeão',
+  description:
+    'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes, #jogos-gratis, #hall-do-reino) e o cargo de campeão',
   adminOnly: true,
   async execute(ctx) {
     const { client } = ctx;
@@ -61,9 +64,9 @@ export const setup: Command = {
               name: channelName,
               type: ChannelType.GUILD_TEXT,
               topic,
-              // #placar é só leitura para os membros (o @everyone tem o mesmo ID do servidor).
+              // #placar e #hall-do-reino são só leitura para os membros (o @everyone tem o mesmo ID do servidor).
               permission_overwrites:
-                key === 'scoreboard'
+                key === 'scoreboard' || key === 'hall'
                   ? [
                       { id: client.guildId, type: 0, deny: Permission.SEND_MESSAGES.toString() },
                       { id: botId, type: 1, allow: (Permission.SEND_MESSAGES | Permission.PIN_MESSAGES).toString() },

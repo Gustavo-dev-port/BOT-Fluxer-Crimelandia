@@ -2,17 +2,17 @@ import { disputedEmbed, Emoji, resultEmbed, scoreboardEmbed } from '../../embeds
 import { config } from '../../config.js';
 import { prisma } from '../../database/client.js';
 import type { FluxerClient } from '../../fluxer/client.js';
-import { FluxerApiError } from '../../fluxer/rest.js';
 import type { Message, Snowflake } from '../../fluxer/types.js';
 import { getMatch, type ConfirmedMatch, type MatchWithParticipants } from '../matches.js';
 import { rankingValue } from '../ranking.js';
 import { type SeasonEndResult } from '../seasons.js';
-import { getSetting, setSetting } from '../settings.js';
 import { entryLabel, getTournament, type TournamentProgress } from '../tournaments.js';
 import { guildSettings } from '../../database/guildSettingsRepository.js';
-import { getChannelId, sendTo } from '../channels.js';
+import { sendTo } from '../channels.js';
 import { clip, cmd, Colors, medal, mention, timeTag, versus } from '../../embeds/format.js';
 import { refreshTournamentMessage } from './tournamentAnnouncer.js';
+import { upsertPinnedMessage } from './pinnedMessage.js';
+import { trackMatch } from './missionTracker.js';
 import { errorMeta, scoped } from '../../utils/logger.js';
 
 const log = scoped('anúncios');
@@ -61,6 +61,7 @@ export async function afterMatchConfirmed(client: FluxerClient, result: Confirme
     await refreshTournamentMessage(client, result.tournament.tournamentId);
   }
   await updateScoreboard(client);
+  await trackMatch(client, result);
 }
 
 export async function announceDisputed(client: FluxerClient, match: MatchWithParticipants) {
@@ -108,32 +109,7 @@ export async function announceTournamentProgress(client: FluxerClient, progress:
 
 /** Edita a mensagem fixa do #placar (ou cria, se não existir). */
 export async function updateScoreboard(client: FluxerClient) {
-  const channelId = await getChannelId(client, 'scoreboard');
-  if (!channelId) return;
-  const payload = { embeds: [await scoreboardEmbed()], allowed_mentions: { parse: [] } };
-  const savedChannel = await getSetting('scoreboard:channelId');
-  const messageId = await getSetting('scoreboard:messageId');
-  if (messageId && savedChannel === channelId) {
-    try {
-      await client.rest.editMessage(channelId, messageId, payload);
-      return;
-    } catch (err) {
-      // Mensagem apagada: cria outra abaixo.
-      if (!(err instanceof FluxerApiError && err.status === 404)) {
-        log.error('falha ao editar o placar', errorMeta(err));
-        return;
-      }
-    }
-  }
-  const sent = await client.send(channelId, payload).catch((err) => {
-    log.error('falha ao enviar o placar', errorMeta(err));
-    return null;
-  });
-  if (sent) {
-    await setSetting('scoreboard:messageId', sent.id);
-    await setSetting('scoreboard:channelId', channelId);
-    await client.rest.pinMessage(channelId, sent.id).catch(() => undefined);
-  }
+  await upsertPinnedMessage(client, 'scoreboard', 'scoreboard', { embeds: [await scoreboardEmbed()], allowed_mentions: { parse: [] } });
 }
 
 // ─── Temporadas ─────────────────────────────────────────────────────────────

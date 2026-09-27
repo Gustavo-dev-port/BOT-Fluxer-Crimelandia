@@ -158,6 +158,9 @@ export class MockFluxer {
     if (req.method === 'PATCH' && (m = /^\/channels\/([^/]+)\/messages\/([^/]+)$/.exec(path))) {
       return json(200, this.message(m[1], m[2], body));
     }
+    if (req.method === 'PATCH' && (m = /^\/channels\/([^/]+)$/.exec(path))) {
+      return json(200, { id: m[1], type: 2, guild_id: GUILD_ID, ...body });
+    }
     if (req.method === 'POST' && path === `/guilds/${GUILD_ID}/roles`) {
       const role = {
         id: `r${this.nextMessageId++}`,

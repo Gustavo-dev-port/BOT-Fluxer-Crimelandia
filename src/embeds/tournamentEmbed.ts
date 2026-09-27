@@ -4,7 +4,9 @@ import type { Embed } from '../fluxer/types.js';
 import { roundCount } from '../services/rules/bracket.js';
 import { entryLabel, getTournament, roundRobinTable, tournamentMatches } from '../services/tournaments.js';
 import { TournamentFormat, TournamentStatus } from '../types/domain.js';
-import { clip, cmd, Colors, medal, STATUS_LABEL, timeTag } from './format.js';
+import { clip, cmd, Colors, medal, mention, STATUS_LABEL, timeTag } from './format.js';
+import { NightStatus, nightByTournament, optionsOf } from '../services/night.js';
+import { tally, VOTE_EMOJIS } from '../services/rules/night.js';
 
 export const JOIN_EMOJI = '✅';
 
@@ -47,6 +49,35 @@ export async function tournamentEmbed(tournamentId: number): Promise<Embed> {
       .join('\n'),
     fields,
   };
+
+  // Night Fluxer: votação do jogo e equipes sorteadas com as salas de voz.
+  const night = t.isWeekly ? await nightByTournament(t.id) : null;
+  if (night) {
+    embed.title = `🌙 ${t.name} (#${t.id})`;
+    embed.color = Colors.wine;
+    const options = optionsOf(night);
+    if (night.status === NightStatus.VOTING && options.length) {
+      const counts = tally(
+        options.length,
+        night.votes.map((v) => v.option),
+      );
+      fields.push({
+        name: '🗳️ Votação do jogo',
+        value:
+          options.map((g, i) => `${VOTE_EMOJIS[i]} ${g} — **${counts[i]}** ${counts[i] === 1 ? 'voto' : 'votos'}`).join('\n') +
+          '\n_Reaja com o número do jogo para votar._',
+      });
+    }
+    if (night.teams.length) {
+      const lines = [];
+      for (const team of night.teams) {
+        const entry = t.entries.find((e) => e.teamId !== null && e.teamId === team.teamId);
+        const members = entry?.team ? entry.team.members.map((m) => mention(m.playerId)).join(', ') : '';
+        lines.push(`**${team.name}**${members ? ` — ${members}` : ''}${team.voiceChannelId ? ` · 🔊 <#${team.voiceChannelId}>` : ''}`);
+      }
+      fields.push({ name: '🛡️ Equipes e salas', value: clip(lines.join('\n'), 1024) });
+    }
+  }
 
   if (t.status === TournamentStatus.REGISTRATION) {
     fields.push({

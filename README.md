@@ -9,28 +9,32 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Times** — 2v2, 3v3 ou squads de até 10
 - **Campeonatos** — chave simples (mata-mata) ou todos contra todos
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
-- **Eventos semanais** — toda sexta às 20h: _Night Fluxer_, inscrição reagindo com ✅
+- **Night Fluxer** — toda sexta às 20h: votação do jogo (1️⃣–4️⃣), inscrição com ✅, sorteio automático de equipes, uma sala de voz por equipe e chave; `!night` mostra o status
+- **Salas temporárias** — `!grupo` cria a sala de voz "Grupo do <nome>": nome, limite, privado/público, senha, convite, expulsão e troca de líder; some sozinha quando fica vazia
 - **Promoções** — Steam, Epic, GOG, Humble, Nuuvem e Green Man Gaming a cada 30 min, sem repetir
 - **Jogos grátis** — Epic, giveaways da Steam/GOG e free weekends a cada hora, com `!gratis`
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
 - **Conquistas** — medalhas desbloqueadas automaticamente
-- **Rivalidades** — `!rival` descobre quem vocês mais enfrentam
+- **Rivalidades** — `!rival` descobre quem vocês mais enfrentam, com histórico; `!rivalidades` mostra o Top 10 da comunidade
+- **Hall do Reino** — campeão, MVP da semana, mais ativo, maior sequência, mais vitórias e mais FluxCoins, fixado em `#🏰┃hall-do-reino` e atualizado a cada 10 min
+- **Missões diárias** — 3 missões novas à meia-noite (vencer partidas, tempo em voz, entrar em salas, mensagens, reações), com recompensa de 20 a 100 FluxCoins; `!missoes` e `!coletar`
+- **Perfil medieval** — classe, liga com barra de progresso, avatar e títulos de honra (👑 ⚔️ 🧙 🐺 🔥)
 
 > **Comandos de texto e reações.** O Fluxer não tem slash commands nem botões. Os comandos usam um prefixo (`!` por padrão) e as confirmações usam reações: ✅ aceita/confirma, ❌ recusa, ⚠️ contesta.
 
 ## Stack
 
-| Tecnologia              | Uso                                                                   |
-| ----------------------- | --------------------------------------------------------------------- |
-| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                     |
-| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                  |
-| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)            |
-| Prisma 6                | ORM e migrações                                                       |
-| node-cron               | Temporadas, expirações e evento semanal                               |
-| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta) |
-| Winston                 | Logs no console e em `logs/error.log` / `logs/combined.log`           |
-| ESLint + Prettier       | Qualidade e formatação do código                                      |
-| Docker                  | Hospedagem (bot + PostgreSQL)                                         |
+| Tecnologia              | Uso                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                                                                  |
+| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                                                               |
+| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)                                                         |
+| Prisma 6                | ORM e migrações                                                                                                    |
+| node-cron               | Temporadas, expirações e evento semanal                                                                            |
+| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta)                                              |
+| Winston                 | Logs no console, em `logs/error.log` / `logs/combined.log` e por módulo (`missions.log`, `voice.log`, `night.log`) |
+| ESLint + Prettier       | Qualidade e formatação do código                                                                                   |
+| Docker                  | Hospedagem (bot + PostgreSQL)                                                                                      |
 
 ## Instalação
 
@@ -39,7 +43,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 1. No Fluxer, crie uma aplicação (Configurações → aplicações/desenvolvedor). A criação gera o **token do bot** no formato `<application_id>.<secret>` — ele só aparece uma vez (`FLUXER_TOKEN`).
 2. Copie o ID do seu servidor (`FLUXER_GUILD_ID`).
 3. Suba o bot uma vez (passo 2): ele imprime no log o **link de convite** (`/v1/oauth2/authorize?client_id=…&scope=bot&permissions=…`) já com as permissões necessárias:
-   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (só para o `!setup`)_.
+   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (`!setup`, salas do Night Fluxer e do `!grupo`), Conectar e Mover membros (expulsar de um `!grupo`), Gerenciar mensagens (apagar mensagens com senha de grupo)_.
 4. Para os cargos funcionarem, o cargo do bot precisa ficar **acima** dos cargos que ele entrega (hierarquia do Fluxer).
 
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
@@ -54,7 +58,7 @@ npm run dev                  # aplica as migrações (SQLite em prisma/fluxer.db
 
 No Windows (PowerShell), troque `cp` por `Copy-Item .env.example .env`.
 
-No servidor, rode **`!setup`** (admin): ele cria os canais `#comandos`, `#placar`, `#partidas` e `#eventos` e o cargo **🏆 Campeão do Reino**. Depois ajuste o que quiser com **`!config`** e veja todos os comandos com **`!ajuda`**.
+No servidor, rode **`!setup`** (admin): ele cria os canais `#comandos`, `#placar`, `#partidas`, `#eventos`, `#promocoes`, `#jogos-gratis` e `#hall-do-reino` e o cargo **🏆 Campeão do Reino**. Depois ajuste o que quiser com **`!config`** e veja todos os comandos com **`!ajuda`**.
 
 > ⚠️ Valores reais (token, senhas) vão **só no `.env`**, que o git ignora. Nunca no `.env.example`.
 
@@ -134,13 +138,14 @@ Cada postagem tem imagem, nome, descrição, plataforma, data limite e o link **
 
 ## Canais
 
-| Canal           | Função                                                                    |
-| --------------- | ------------------------------------------------------------------------- |
-| `#comandos`     | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
-| `#placar`       | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
-| `#partidas`     | Histórico das disputas confirmadas e das disputas contestadas             |
-| `#eventos`      | Campeonatos, evento semanal e fim de temporada                            |
-| `#💸┃promocoes` | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
+| Canal               | Função                                                                    |
+| ------------------- | ------------------------------------------------------------------------- |
+| `#comandos`         | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
+| `#placar`           | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
+| `#partidas`         | Histórico das disputas confirmadas e das disputas contestadas             |
+| `#eventos`          | Campeonatos, evento semanal e fim de temporada                            |
+| `#💸┃promocoes`     | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
+| `#🏰┃hall-do-reino` | Hall do Reino — mensagem fixada, atualizada a cada 10 min (só leitura)    |
 
 Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 
@@ -163,12 +168,14 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 
 ### Ranking e perfil
 
-| Comando                           | Função                                                                                              |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`)                              |
-| `!top10`                          | Os 10 melhores jogadores                                                                            |
-| `!perfil [@jogador]`              | Liga, colocação, vitórias (+ na semana), derrotas, win rate, sequência, jogos favoritos, conquistas |
-| `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto                                                                |
+| Comando                           | Função                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `!rank [temporada] [pontos\|elo]` | Ranking da temporada atual ou de uma anterior (`!rank 2`, `!rank elo`)                                                                                                        |
+| `!top10`                          | Os 10 melhores jogadores                                                                                                                                                      |
+| `!perfil [@jogador]`              | Perfil medieval: avatar, classe, liga com barra de progresso, colocação, vitórias (+ na semana), derrotas, win rate, sequência, títulos de honra, jogos favoritos, conquistas |
+| `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto, com taxa de vitória e histórico dos últimos 5 duelos                                                                                    |
+| `!rivalidades`                    | Top 10 rivalidades da comunidade (pares com 2+ duelos 1v1)                                                                                                                    |
+| `!hall`                           | Hall do Reino                                                                                                                                                                 |
 
 ### Times e eventos
 
@@ -182,6 +189,13 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!evento chave <id>`                                       | Mostra chave / classificação                                                           |
 | `!evento listar` · `sair <id>` · `cancelar <id>`           | Gestão de eventos                                                                      |
 | `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio         | Entra no evento                                                                        |
+| `!night`                                                   | Status do Night Fluxer: fase, votação, inscritos, equipes, salas de voz e chave        |
+| `!grupo [criar] [nome]`                                    | Cria sua sala de voz temporária ("Grupo do <nome>")                                    |
+| `!grupo nome <nome>` · `limite <0-99>`                     | Renomeia / limita a sala (0 = sem limite)                                              |
+| `!grupo privado [senha]` · `publico` · `senha <s\|limpar>` | Privacidade e senha (a mensagem com a senha é apagada)                                 |
+| `!grupo convidar @amigo` · `entrar @líder <senha>`         | Libera um amigo / entra num grupo privado com senha                                    |
+| `!grupo expulsar @membro` · `lider @membro`                | Expulsa (tira da voz e bloqueia) / transfere a liderança                               |
+| `!grupo info` · `fechar`                                   | Detalhes / apaga a sala                                                                |
 
 ### Economia
 
@@ -191,25 +205,27 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!resgatar <item> [#cor \| apelido]`              | Resgata um item (`!resgatar cor-nick #ff8800`, `!resgatar apelido-especial Rei do Clutch`); `!comprar` também funciona |
 | `!titulo equipar <título>` · `remover` · `listar` | Título exibido no perfil                                                                                               |
 | `!saldo`                                          | Saldo e últimas movimentações                                                                                          |
+| `!missoes`                                        | Suas 3 missões do dia, com barra de progresso                                                                          |
+| `!coletar`                                        | Coleta as FluxCoins das missões concluídas                                                                             |
 
 ### Administração
 
 Admin = quem tem **Gerenciar Servidor** (ou Administrador, ou é o dono).
 
-| Comando                                                                             | Função                                        |
-| ----------------------------------------------------------------------------------- | --------------------------------------------- |
-| `!setup`                                                                            | Cria/configura os canais e o cargo de campeão |
-| `!config`                                                                           | Mostra a configuração do servidor             |
-| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos> #canal` | Define um canal                               |
-| `!config <promo-role\|campeao-role> @cargo`                                         | Define um cargo                               |
-| `!config idioma pt-BR` · `!config <opção> limpar`                                   | Idioma / remove um valor                      |
-| `!temporada [encerrar]`                                                             | Informações / encerra a temporada agora       |
-| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                              | Jogos disponíveis para disputas               |
-| `!admin resultado #partida @vencedor`                                               | Resolve disputas                              |
-| `!admin cancelar #partida`                                                          | Cancela uma partida não confirmada            |
-| `!admin moedas @jogador <quantidade> [motivo]`                                      | Ajusta FluxCoins                              |
-| `!admin placar`                                                                     | Recria a mensagem do placar                   |
-| `!admin evento-semanal`                                                             | Abre o evento semanal agora                   |
+| Comando                                                                                   | Função                                        |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `!setup`                                                                                  | Cria/configura os canais e o cargo de campeão |
+| `!config`                                                                                 | Mostra a configuração do servidor             |
+| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos\|hall> #canal` | Define um canal                               |
+| `!config <promo-role\|campeao-role> @cargo`                                               | Define um cargo                               |
+| `!config idioma pt-BR` · `!config <opção> limpar`                                         | Idioma / remove um valor                      |
+| `!temporada [encerrar]`                                                                   | Informações / encerra a temporada agora       |
+| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                                    | Jogos disponíveis para disputas               |
+| `!admin resultado #partida @vencedor`                                                     | Resolve disputas                              |
+| `!admin cancelar #partida`                                                                | Cancela uma partida não confirmada            |
+| `!admin moedas @jogador <quantidade> [motivo]`                                            | Ajusta FluxCoins                              |
+| `!admin placar`                                                                           | Recria a mensagem do placar                   |
+| `!admin evento-semanal`                                                                   | Abre o evento semanal agora                   |
 
 ## Como funciona um duelo
 
@@ -251,9 +267,24 @@ Em partidas de time, usa-se a média de rating de cada lado e todos recebem a me
 
 **Loja** — títulos (Rei do Rush, Fantasma, Sniper, Senhor do Clutch, Tryhard), cor do nickname (7 dias), apelido especial ✨ (7 dias; o apelido anterior volta depois), cargo VIP temporário (7 dias, `SHOP_VIP_ROLE_ID`) e evento personalizado (permite criar um evento). Itens ficam em `src/services/rules/shop.ts`.
 
+**Missões diárias** — à meia-noite (fuso `TIMEZONE`) o bot sorteia 3 missões de tipos diferentes e anuncia em `#comandos`. O sorteio usa a data como semente, então reiniciar o bot não troca as missões. Tipos: ⚔️ vencer partidas, 🎮 jogar partidas, 🎙️ minutos em voz, 🚪 entrar em salas de voz, 💬 mensagens, 👍 reações; recompensa de 20 a 100 FluxCoins. O progresso conta na hora e o bot avisa em `#comandos` quando alguém conclui. Contra spam: mensagens contam uma a cada 15 s, com 3+ caracteres e sem comandos; cada reação conta uma vez por mensagem por dia. As recompensas ficam guardadas até o `!coletar`.
+
+**Hall do Reino** — 👑 campeão da última temporada encerrada (antes da primeira, o líder atual); ⭐ MVP da semana: mais vitórias nos últimos 7 dias; 🛡️ mais ativo: mais partidas nos últimos 30 dias; 🔥 maior sequência de vitórias em qualquer temporada; ⚔️ mais vitórias na carreira; 🪙 maior saldo de FluxCoins. Empates ficam com quem chegou primeiro.
+
+**Perfil medieval** — a classe vem do estilo de jogo: 🪖 Recruta (menos de 5 partidas), 🧠 Estrategista (vence 60%+), 🪓 Berserker (30+ partidas e menos de 50% de vitórias), 🛡️ Cavaleiro (o resto). Títulos de honra, calculados na hora: 👑 Campeão do Reino (vença uma temporada), ⚔️ Gladiador (50 partidas), 🧙 Arquimago (1600 de rating), 🐺 Lobo Solitário (25 vitórias em duelos 1v1), 🔥 Imparável (10 vitórias seguidas). Os que faltam aparecem com 🔒 e uma barra de progresso.
+
 **Partidas** — o banco registra vencedor, perdedor, jogo, duração e data. A duração vem do `!resultado` (ex.: `25min`, `1h20`) ou é medida do aceite até o resultado; o `!perfil` mostra a média.
 
-**Evento semanal** — `WEEKLY_EVENT_CRON` (padrão `0 20 * * 5`, sexta 20h no fuso `TIMEZONE`). Quem reagir com ✅ entra na chave; após `WEEKLY_EVENT_REGISTRATION_MINUTES` (30) a chave é gerada automaticamente. Com menos de 2 inscritos, o evento é cancelado.
+**Night Fluxer** — `WEEKLY_EVENT_CRON` (padrão `0 20 * * 5`, sexta 20h no fuso `TIMEZONE`):
+
+1. 🗳️ O anúncio em `#eventos` traz a votação entre os `NIGHT_POLL_OPTIONS` (4) jogos mais jogados nos últimos 30 dias (reaja com 1️⃣–4️⃣; tirar a reação desfaz o voto) e a inscrição (✅).
+2. ⏱️ Após `WEEKLY_EVENT_REGISTRATION_MINUTES` (30), vence o jogo mais votado (empate: o primeiro da lista).
+3. 🎲 As equipes de `NIGHT_TEAM_SIZE` (2) são sorteadas (Lobos, Dragões, Corvos…; quem sobra entra nas primeiras). Com menos de 2 equipes possíveis, o evento roda em 1v1.
+4. 🔊 O bot cria uma sala de voz por equipe (ou uma "Arena" no 1v1), na categoria do `#eventos`.
+5. ⚔️ A chave começa; os resultados vão com `!resultado` e atualizam o ranking como qualquer partida.
+6. 🧹 Quando o evento termina (ou é cancelado), as salas de voz são apagadas. Com menos de 2 inscritos, o evento é cancelado.
+
+**Salas temporárias** — `!grupo` cria a sala na categoria do `#comandos`. Sala nova sem ninguém some em 5 minutos; depois de usada, some 1 minuto após o último sair. Privado nega **Conectar** para @everyone e libera o líder, quem já está na sala e os convidados; a senha fica guardada só como hash. A missão "Receba N amigos no seu grupo" conta cada amigo uma vez por dia.
 
 ## Variáveis de ambiente
 
@@ -276,6 +307,7 @@ Todas estão comentadas no `.env.example`. As principais:
 | `PROMO_*`                                             | ver `.env.example`   | Promoções: fontes, desconto mínimo (40), menção (80), intervalo (30 min) |
 | `FREE_GAMES_*`                                        | ver `.env.example`   | Jogos grátis: fontes, intervalo (1 h)                                    |
 | `WEEKLY_EVENT_*`                                      | sexta 20h            | Evento semanal Night Fluxer                                              |
+| `NIGHT_TEAM_SIZE` / `NIGHT_POLL_OPTIONS`              | 2 / 4                | Tamanho das equipes sorteadas / jogos na votação                         |
 | `SHOP_VIP_ROLE_ID`                                    | —                    | Cargo entregue pelo item VIP da loja                                     |
 
 ## Deploy
@@ -285,9 +317,9 @@ Todas estão comentadas no `.env.example`. As principais:
 3. Atualizar: `git pull && docker compose up -d --build`.
 4. Logs: `docker compose logs -f bot` ou os arquivos no volume `bot-logs`.
 
-## Música (Lavalink)
+## Música (Lavalink / LiveKit)
 
-O módulo de música da especificação usa Lavalink, que só se conecta à voz do **Discord**. A voz do Fluxer usa **LiveKit** (docs.fluxer.app → Voice), então o Lavalink não funciona aqui. Por isso não há `/play` nem serviço `lavalink` no compose. O canal de música já pode ser configurado (`!config musica #canal`) para quando existir um player compatível com LiveKit (veja `docs/AUDITORIA.md`).
+A voz do Fluxer usa **LiveKit**, então o Lavalink (feito para a voz do Discord) não funciona aqui. A v1.1 pedia um player LiveKit que tocasse YouTube e Spotify "sem baixar conteúdo, só com metadados". Isso não é possível: os metadados não trazem o áudio, o Spotify não libera áudio para terceiros e tocar o YouTube exige extrair e retransmitir o áudio. Por isso ainda não há `!play`. O canal de música já pode ser configurado (`!config musica #canal`). O caminho viável está em `docs/AUDITORIA-v1.1.md` (Pendências para a V1.2).
 
 ## Estrutura
 
@@ -304,7 +336,7 @@ src/
 └── fluxer/       cliente da API do Fluxer
 ```
 
-Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Situação do projeto em [`docs/AUDITORIA.md`](docs/AUDITORIA.md).
+Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Situação do projeto em [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (v1.0) e [`docs/AUDITORIA-v1.1.md`](docs/AUDITORIA-v1.1.md) (v1.1).
 
 ## Desenvolvimento
 

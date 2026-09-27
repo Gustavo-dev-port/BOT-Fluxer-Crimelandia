@@ -108,6 +108,9 @@ export class RestClient {
   editMessage(channelId: Snowflake, messageId: Snowflake, payload: MessagePayload) {
     return this.request<Message>('PATCH', `/channels/${channelId}/messages/${messageId}`, { body: payload });
   }
+  deleteMessage(channelId: Snowflake, messageId: Snowflake, reason?: string) {
+    return this.request<void>('DELETE', `/channels/${channelId}/messages/${messageId}`, { reason });
+  }
   pinMessage(channelId: Snowflake, messageId: Snowflake) {
     return this.request<void>('PUT', `/channels/${channelId}/pins/${messageId}`);
   }
@@ -128,7 +131,14 @@ export class RestClient {
   }
   createGuildChannel(
     guildId: Snowflake,
-    body: { name: string; type: number; topic?: string; parent_id?: Snowflake; permission_overwrites?: PermissionOverwrite[] },
+    body: {
+      name: string;
+      type: number;
+      topic?: string;
+      parent_id?: Snowflake;
+      user_limit?: number;
+      permission_overwrites?: PermissionOverwrite[];
+    },
     reason?: string,
   ) {
     return this.request<Channel>('POST', `/guilds/${guildId}/channels`, { body, reason });
@@ -140,7 +150,31 @@ export class RestClient {
     return this.request<GuildMember>('GET', `/guilds/${guildId}/members/@me`);
   }
   /** docs: PATCH /guilds/{guild_id}/members/{user_id} — nick null remove o apelido. */
-  modifyMember(guildId: Snowflake, userId: Snowflake, body: { nick?: string | null }, reason?: string) {
+  /** docs: PATCH /channels/{channel_id} (nome, limite de voz, sobrescritas...). */
+  modifyChannel(
+    channelId: Snowflake,
+    body: { name?: string; user_limit?: number | null; permission_overwrites?: PermissionOverwrite[] },
+    reason?: string,
+  ) {
+    return this.request<Channel>('PATCH', `/channels/${channelId}`, { body, reason });
+  }
+  deleteChannel(channelId: Snowflake, reason?: string) {
+    return this.request<Channel>('DELETE', `/channels/${channelId}`, { reason });
+  }
+  /** docs: PUT /channels/{channel_id}/permissions/{overwrite_id} (type 0 = cargo, 1 = membro). */
+  editChannelPermission(
+    channelId: Snowflake,
+    overwriteId: Snowflake,
+    body: { type: number; allow?: string; deny?: string },
+    reason?: string,
+  ) {
+    return this.request<void>('PUT', `/channels/${channelId}/permissions/${overwriteId}`, { body, reason });
+  }
+  deleteChannelPermission(channelId: Snowflake, overwriteId: Snowflake, reason?: string) {
+    return this.request<void>('DELETE', `/channels/${channelId}/permissions/${overwriteId}`, { reason });
+  }
+  /** `channel_id: null` desconecta o membro da voz (exige Mover Membros). */
+  modifyMember(guildId: Snowflake, userId: Snowflake, body: { nick?: string | null; channel_id?: Snowflake | null }, reason?: string) {
     return this.request<GuildMember>('PATCH', `/guilds/${guildId}/members/${userId}`, { body, reason });
   }
   addMemberRole(guildId: Snowflake, userId: Snowflake, roleId: Snowflake, reason?: string) {

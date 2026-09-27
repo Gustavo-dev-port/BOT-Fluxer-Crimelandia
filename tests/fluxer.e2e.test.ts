@@ -5,6 +5,10 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { onMessageCreate } from '../src/events/messageCreate.js';
 import { onReaction } from '../src/events/reactions.js';
+import { onVoiceEvent } from '../src/events/voiceState.js';
+import { trackVoice } from '../src/services/notifications/missionTracker.js';
+import { trackRooms } from '../src/services/notifications/voiceRooms.js';
+import { todayKey } from '../src/services/missions.js';
 import { prisma } from '../src/database/client.js';
 import { FluxerClient } from '../src/fluxer/client.js';
 import { RestClient } from '../src/fluxer/rest.js';
@@ -19,7 +23,13 @@ let mock: MockFluxer;
 let client: FluxerClient;
 let msgSeq = 1;
 
-const user = (id: string, name: string) => ({ id, username: name, global_name: null, discriminator: '0000', avatar: null });
+const user = (id: string, name: string) => ({
+  id,
+  username: name,
+  global_name: null,
+  discriminator: '0000',
+  avatar: null as string | null,
+});
 const GUSTAVO = user('100', 'gustavo');
 const LUCAS = user('200', 'lucas');
 const CURIOSO = user('300', 'curioso');
@@ -55,6 +65,25 @@ function react(u: ReturnType<typeof user>, messageId: string, emoji: string, cha
   } satisfies ReactionEvent);
 }
 
+/** Espera uma condição assíncrona (consultas ao banco). */
+async function until(fn: () => Promise<boolean>, timeout = 3000) {
+  const start = Date.now();
+  while (!(await fn())) {
+    if (Date.now() - start > timeout) throw new Error('until: tempo esgotado');
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
+/**
+ * Reage a um prompt de partida só depois de o bot registrá-lo. O bot envia a mensagem
+ * e em seguida grava o prompt; uma pessoa só consegue reagir depois (os botões ✅/❌
+ * aparecem depois do registro), mas o teste reagiria no meio.
+ */
+async function reactToPrompt(u: ReturnType<typeof user>, messageId: string, emoji: string) {
+  await until(async () => Boolean(await prisma.reactionPrompt.findUnique({ where: { messageId } })));
+  react(u, messageId, emoji);
+}
+
 /** Última resposta do bot a uma mensagem específica. */
 function replyTo(event: MessageCreateEvent) {
   return mock.calls.find((c) => c.method === 'POST' && c.body?.message_reference?.message_id === event.id);
@@ -67,7 +96,10 @@ beforeAll(async () => {
     if (event === 'MESSAGE_CREATE') void onMessageCreate(client, data as MessageCreateEvent);
     if (event === 'MESSAGE_REACTION_ADD') void onReaction(client, data as ReactionEvent, true);
     if (event === 'MESSAGE_REACTION_REMOVE') void onReaction(client, data as ReactionEvent, false);
+    onVoiceEvent(client, event, data);
   });
+  trackVoice(client);
+  trackRooms(client);
   const ready = new Promise((r) => client.gateway.once('ready', r));
   client.login();
   await ready;
@@ -133,9 +165,9 @@ describe('comandos e reações', () => {
     expect(emojis).toEqual(['✅', '❌']);
 
     // Quem não participa não consegue aceitar.
-    react(CURIOSO, challenge.id, '✅');
+    await reactToPrompt(CURIOSO, challenge.id, '✅');
     // Lucas aceita reagindo: o bot edita a mensagem do desafio.
-    react(LUCAS, challenge.id, '✅');
+    await reactToPrompt(LUCAS, challenge.id, '✅');
     const accepted = await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
     expect(accepted.body.embeds[0].title).toMatch(/aceita/);
 
@@ -145,11 +177,11 @@ describe('comandos e reações', () => {
     expect(awaiting.content).toBe('<@200>');
 
     // Gustavo não pode confirmar o próprio resultado: recebe aviso no canal.
-    react(GUSTAVO, awaiting.id, '✅');
+    await reactToPrompt(GUSTAVO, awaiting.id, '✅');
     await waitFor(() => mock.calls.find((c) => c.method === 'POST' && /<@100> ❌/.test(c.body?.content ?? '')));
 
     // Lucas confirma com ✅ (o Fluxer pode mandar ⚠️/✅ com ou sem U+FE0F).
-    react(LUCAS, awaiting.id, '✅️');
+    await reactToPrompt(LUCAS, awaiting.id, '✅️');
     const confirmed = await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${awaiting.id}$`))[0]);
     expect(confirmed.body.embeds[0].title).toMatch(/✅ Partida #\d+/);
 
@@ -171,7 +203,7 @@ describe('comandos e reações', () => {
   it('❌ recusa o desafio', async () => {
     const cmd = say(GUSTAVO, '!x1 <@200> Valorant', [LUCAS]);
     const challenge = await waitFor(() => replyTo(cmd)?.response);
-    react(LUCAS, challenge.id, '❌');
+    await reactToPrompt(LUCAS, challenge.id, '❌');
     const edited = await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
     expect(edited.body.embeds[0].title).toMatch(/recusado/);
   });
@@ -311,6 +343,11 @@ describe('comandos e reações', () => {
     const settings = await prisma.guildSettings.findUniqueOrThrow({ where: { guildId: GUILD_ID } });
     expect(settings).toMatchObject({ commandsChannelId: 'c-comandos', scoreboardChannelId: 'c-placar', eventChannelId: 'c-eventos' });
     expect(settings.championRoleId).toMatch(/^r/);
+    // #hall-do-reino não existia: é criado só leitura para @everyone.
+    const hallChannel = mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/channels$`)).find((c) => /hall-do-reino/.test(c.body.name));
+    expect(hallChannel!.body.name).toBe('🏰┃hall-do-reino');
+    expect(hallChannel!.body.permission_overwrites[0]).toMatchObject({ id: GUILD_ID, deny: expect.any(String) });
+    expect(settings.hallChannelId).toMatch(/^c\d+$/);
     mock.roles = mock.roles.filter((r) => r.id === GUILD_ID);
   });
 
@@ -408,11 +445,11 @@ describe('comandos e reações', () => {
     // Duelo com duração informada.
     const d = say(GUSTAVO, '!duelo <@200> CS2', [LUCAS]);
     const challenge = await waitFor(() => replyTo(d)?.response);
-    react(LUCAS, challenge.id, '✅');
+    await reactToPrompt(LUCAS, challenge.id, '✅');
     await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
     const r = say(GUSTAVO, '!resultado <@100> 25min', [GUSTAVO]);
     const awaiting = await waitFor(() => replyTo(r)?.response);
-    react(LUCAS, awaiting.id, '✅');
+    await reactToPrompt(LUCAS, awaiting.id, '✅');
     const done = await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${awaiting.id}$`))[0]);
     expect(done.body.embeds[0].description).toContain('Duração: **25 min**');
 
@@ -445,5 +482,242 @@ describe('comandos e reações', () => {
     expect(mock.callsTo('PUT', new RegExp(`^/guilds/${GUILD_ID}/members/100/roles/9990001$`))).toHaveLength(1);
     expect(await prisma.tempRole.findFirstOrThrow({ where: { playerId: '100', roleId: '9990001' } })).toMatchObject({ deleteRole: false });
     delete process.env.SHOP_VIP_ROLE_ID;
+  });
+
+  it('v1.1: Hall do Reino fixado e atualizado, !hall, perfil medieval, !rival com histórico e !rivalidades', async () => {
+    const { acceptDuel, confirmResult, createDuel, reportResult } = await import('../src/services/matches.js');
+    const { updateHallOfFame } = await import('../src/services/notifications/hallAnnouncer.js');
+    const { guildSettings } = await import('../src/database/guildSettingsRepository.js');
+    for (const [w, l] of [
+      ['100', '200'],
+      ['200', '100'],
+      ['100', '200'],
+    ]) {
+      const m = await createDuel({ id: w, username: w }, { id: l, username: l }, 'CS2');
+      await acceptDuel(l, m.id);
+      await reportResult(w, w, m.id);
+      await confirmResult(l, m.id);
+    }
+
+    // Mensagem fixada no #hall-do-reino: cria e fixa na primeira vez, edita nas seguintes.
+    await guildSettings.setChannel(GUILD_ID, 'hall', 'c-hall');
+    await updateHallOfFame(client);
+    const posted = mock.callsTo('POST', /^\/channels\/c-hall\/messages$/);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].body.embeds[0].title).toBe('🏰 Hall do Reino');
+    expect(mock.callsTo('PUT', new RegExp(`^/channels/c-hall/pins/${posted[0].response.id}$`))).toHaveLength(1);
+    await updateHallOfFame(client);
+    expect(mock.callsTo('POST', /^\/channels\/c-hall\/messages$/)).toHaveLength(1);
+    expect(mock.callsTo('PATCH', new RegExp(`^/channels/c-hall/messages/${posted[0].response.id}$`))).toHaveLength(1);
+
+    const h = say(GUSTAVO, '!hall');
+    const hallReply = await waitFor(() => replyTo(h)?.body);
+    const mvp = hallReply.embeds[0].fields.find((f: { name: string }) => f.name.includes('MVP'));
+    expect(mvp.value).toContain('<@100>');
+
+    // Perfil com avatar (Media Proxy), classe, liga e títulos.
+    const withAvatar = { ...GUSTAVO, avatar: 'abc123' };
+    const pf = say(withAvatar, '!perfil');
+    const profile = await waitFor(() => replyTo(pf)?.body.embeds[0]);
+    expect(profile.thumbnail.url).toBe(`${mock.origin}/avatars/100/abc123.png?size=256`);
+    expect(profile.description).toMatch(/Recruta/);
+    expect(profile.fields.find((f: { name: string }) => f.name === 'Títulos').value).toMatch(/🔒 Gladiador — .* 3\/50/);
+
+    const rv = say(GUSTAVO, '!rival');
+    const rivalEmbed = await waitFor(() => replyTo(rv)?.body.embeds[0]);
+    expect(rivalEmbed.fields[0].name).toBe('Histórico');
+    expect(rivalEmbed.fields[0].value.split('\n')).toHaveLength(3);
+
+    const top = say(GUSTAVO, '!rivalidades');
+    const topEmbed = await waitFor(() => replyTo(top)?.body.embeds[0]);
+    expect(topEmbed.description).toContain('<@100> **2** × **1** <@200> — 3 duelos');
+  });
+
+  it('etapa 6: missões por mensagem, voz e partida; aviso em #comandos; !missoes e !coletar', async () => {
+    const date = todayKey();
+    for (const [kind, target, reward] of [
+      ['send_messages', 1, 20],
+      ['join_voice', 1, 30],
+      ['win_duels', 1, 60],
+    ] as const) {
+      await prisma.dailyMission.create({ data: { date, kind, target, reward } });
+    }
+    const JOAO = user('400', 'joao');
+    const announced = (who: string) =>
+      mock
+        .callsTo('POST', new RegExp(`^/channels/${CHANNELS.comandos}/messages$`))
+        .filter((c) => c.body.content?.startsWith(`🎯 <@${who}>`));
+
+    // Comandos e mensagens curtas não contam; uma mensagem normal conclui a missão.
+    say(JOAO, '!ajuda');
+    say(JOAO, 'ok');
+    say(JOAO, 'boa noite, reino!');
+    const msgDone = await waitFor(() => announced('400')[0]);
+    expect(msgDone.body.content).toContain('Envie 1 mensagens no servidor');
+    expect(msgDone.body.allowed_mentions).toEqual({ users: ['400'] });
+
+    // Entrar numa sala de voz (VOICE_STATE_UPDATE) conclui "Entre em 1 salas".
+    mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: 'voz-1', user_id: '400', member: { user: JOAO, roles: [] } });
+    await waitFor(() => announced('400').length === 2);
+    // Sair e mudar mute não geram nada novo; bots são ignorados.
+    mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: null, user_id: '400', member: { user: JOAO, roles: [] } });
+    mock.dispatch('VOICE_STATE_UPDATE', {
+      guild_id: GUILD_ID,
+      channel_id: 'voz-1',
+      user_id: '1',
+      member: { user: { ...user('1', 'bot'), bot: true }, roles: [] },
+    });
+
+    // Vitória confirmada conclui "Vença 1 partida".
+    const d = say(JOAO, '!duelo <@200> CS2', [LUCAS]);
+    const challenge = await waitFor(() => replyTo(d)?.response);
+    await reactToPrompt(LUCAS, challenge.id, '✅');
+    await waitFor(() => mock.callsTo('PATCH', new RegExp(`/messages/${challenge.id}$`))[0]);
+    const r = say(JOAO, '!resultado <@400>', [JOAO]);
+    const awaiting = await waitFor(() => replyTo(r)?.response);
+    await reactToPrompt(LUCAS, awaiting.id, '✅');
+    await waitFor(() => announced('400').length === 3);
+
+    const m = say(JOAO, '!missoes');
+    const list = await waitFor(() => replyTo(m)?.body.embeds[0]);
+    expect(list.title).toBe('📜 Missões do dia');
+    expect(list.description.match(/pronta/g)).toHaveLength(3);
+
+    const c = say(JOAO, '!coletar');
+    const paid = await waitFor(() => replyTo(c)?.body.embeds[0]);
+    expect(paid.title).toBe('🪙 +110 FluxCoins');
+    // 110 das missões + 25 da vitória.
+    expect(paid.description).toContain('Saldo: **135**');
+    const again = say(JOAO, '!coletar');
+    expect((await waitFor(() => replyTo(again)?.body)).content).toMatch(/Nenhuma missão concluída/);
+  });
+
+  it('etapa 7: Night Fluxer com votação por reação, equipes com sala de voz, !night e limpeza das salas', async () => {
+    const { closeDueWeeklyEvents, cleanupEndedNights } = await import('../src/schedulers/weeklyEvent.js');
+    const { cancelTournament } = await import('../src/services/tournaments.js');
+    const owner = user(OWNER_ID, 'dono');
+
+    const open = say(owner, '!admin evento-semanal');
+    await waitFor(() => replyTo(open));
+    const announce = await waitFor(() =>
+      mock.callsTo('POST', new RegExp(`^/channels/${CHANNELS.eventos}/messages$`)).find((c) => /Night Fluxer/.test(c.body.content ?? '')),
+    );
+    const msgId = announce.response.id;
+    expect(announce.body.embeds[0].title).toMatch(/^🌙 Night Fluxer/);
+    expect(announce.body.embeds[0].fields[0].name).toBe('🗳️ Votação do jogo');
+    // ✅ para inscrição e 1️⃣–4️⃣ para votar.
+    await waitFor(() => mock.callsTo('PUT', new RegExp(`/messages/${msgId}/reactions/`)).length === 5);
+
+    const players = ['100', '200', '300', '400'].map((id) => user(id, `p${id}`));
+    for (const pl of players) react(pl, msgId, '✅', CHANNELS.eventos);
+    react(players[0], msgId, '2️⃣', CHANNELS.eventos);
+    react(players[1], msgId, '2⃣', CHANNELS.eventos);
+    react(players[2], msgId, '1️⃣', CHANNELS.eventos);
+    const tournament = await prisma.tournament.findFirstOrThrow({ where: { messageId: msgId } });
+    await until(async () => (await prisma.tournamentEntry.count({ where: { tournamentId: tournament.id } })) === 4);
+    await until(async () => (await prisma.eventVote.count()) === 3);
+    // As reações também atualizam o anúncio; espera terminarem antes de fechar.
+    await until(async () => mock.callsTo('PATCH', new RegExp(`/messages/${msgId}$`)).length >= 7);
+    const night = await prisma.weeklyEvent.findUniqueOrThrow({ where: { tournamentId: tournament.id } });
+    const options = JSON.parse(night.options) as string[];
+
+    // A inscrição fecha: jogo mais votado, 2 equipes de 2, uma sala de voz para cada.
+    await prisma.tournament.update({ where: { id: tournament.id }, data: { closesAt: new Date(Date.now() - 1000) } });
+    await closeDueWeeklyEvents(client);
+    const rooms = mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/channels$`)).filter((c) => c.body.type === 2);
+    expect(rooms.map((r) => r.body.name)).toEqual([`🔊 Night #${night.id} · Lobos`, `🔊 Night #${night.id} · Dragões`]);
+    expect(rooms[0].body.user_limit).toBe(2);
+    const started = mock
+      .callsTo('POST', new RegExp(`^/channels/${CHANNELS.eventos}/messages$`))
+      .find((c) => /o jogo escolhido foi/.test(c.body.content ?? ''));
+    expect(started!.body.content).toContain(`**${options[1]}**`);
+
+    const st = say(GUSTAVO, '!night');
+    const status = await waitFor(() => replyTo(st)?.body);
+    expect(status.content).toMatch(/Em andamento/);
+    expect(status.embeds[0].fields.find((f: { name: string }) => f.name === '🛡️ Equipes e salas').value).toMatch(/Lobos.*🔊 <#c\d+>/);
+
+    // Fim do evento: as salas de voz são apagadas.
+    await cancelTournament(tournament.id);
+    await cleanupEndedNights(client);
+    for (const r of rooms) {
+      const id = (await prisma.eventTeam.findFirstOrThrow({ where: { name: r.body.name.split(' · ')[1] } })).voiceChannelId;
+      expect(mock.callsTo('DELETE', new RegExp(`^/channels/${id}$`))).toHaveLength(1);
+    }
+    expect((await prisma.weeklyEvent.findUniqueOrThrow({ where: { id: night.id } })).status).toBe('CANCELLED');
+  });
+
+  it('etapa 7: Night Fluxer com poucos inscritos é cancelado e marcado como CANCELLED', async () => {
+    const { openWeeklyEvent, closeDueWeeklyEvents } = await import('../src/schedulers/weeklyEvent.js');
+    const t = await openWeeklyEvent(client);
+    await prisma.tournament.update({ where: { id: t.id }, data: { closesAt: new Date(Date.now() - 1000) } });
+    await closeDueWeeklyEvents(client);
+    const sent = mock.callsTo('POST', new RegExp(`^/channels/${CHANNELS.eventos}/messages$`)).at(-1)!;
+    expect(sent.body.content).toMatch(/cancelado: São necessários pelo menos 2 inscritos/);
+    expect((await prisma.weeklyEvent.findUniqueOrThrow({ where: { tournamentId: t.id } })).status).toBe('CANCELLED');
+    expect(mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/channels$`))).toHaveLength(0);
+  });
+
+  it('etapa 7: !grupo cria, ajusta, privatiza com senha, expulsa, transfere e some quando vazio', async () => {
+    const { cleanupEmptyRooms } = await import('../src/services/notifications/voiceRooms.js');
+    const create = say(GUSTAVO, '!grupo');
+    const created = await waitFor(() => replyTo(create)?.body);
+    const post = mock.callsTo('POST', new RegExp(`^/guilds/${GUILD_ID}/channels$`)).at(-1)!;
+    expect(post.body).toMatchObject({ name: 'Grupo do gustavo', type: 2 });
+    const room = await prisma.voiceRoom.findFirstOrThrow({ where: { ownerId: '100' } });
+    expect(created.embeds[0].description).toContain(`<#${room.channelId}>`);
+    const again = say(GUSTAVO, '!grupo');
+    expect((await waitFor(() => replyTo(again)?.body)).content).toMatch(/já tem um grupo/);
+
+    const lim = say(GUSTAVO, '!grupo limite 5');
+    await waitFor(() => replyTo(lim));
+    expect(mock.callsTo('PATCH', new RegExp(`^/channels/${room.channelId}$`)).at(-1)!.body).toEqual({ user_limit: 5 });
+
+    // Privado com senha: nega CONNECT para @everyone e apaga a mensagem com a senha.
+    const priv = say(GUSTAVO, '!grupo privado abacaxi');
+    await waitFor(() => replyTo(priv));
+    const overwrites = mock.callsTo('PATCH', new RegExp(`^/channels/${room.channelId}$`)).at(-1)!.body.permission_overwrites;
+    expect(overwrites[0]).toEqual({ id: GUILD_ID, type: 0, deny: String(1n << 20n) });
+    expect(overwrites.some((o: { id: string }) => o.id === '100')).toBe(true);
+    expect(mock.callsTo('DELETE', new RegExp(`^/channels/${CHANNELS.comandos}/messages/${priv.id}$`))).toHaveLength(1);
+    expect((await prisma.voiceRoom.findUniqueOrThrow({ where: { id: room.id } })).passwordHash).not.toContain('abacaxi');
+
+    const wrong = say(LUCAS, '!grupo entrar <@100> errada', [GUSTAVO]);
+    expect((await waitFor(() => replyTo(wrong)?.body)).content).toMatch(/Senha incorreta/);
+    const right = say(LUCAS, '!grupo entrar <@100> abacaxi', [GUSTAVO]);
+    await waitFor(() => replyTo(right));
+    expect(mock.callsTo('PUT', new RegExp(`^/channels/${room.channelId}/permissions/200$`)).at(-1)!.body).toEqual({
+      type: 1,
+      allow: String(1n << 20n),
+    });
+
+    // Lucas entra na sala; só quem está na sala pode virar líder.
+    const voice = (id: string, u: ReturnType<typeof user>, channel: string | null) =>
+      mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: channel, user_id: id, member: { user: u, roles: [] } });
+    const cur = say(GUSTAVO, '!grupo lider <@300>', [CURIOSO]);
+    expect((await waitFor(() => replyTo(cur)?.body)).content).toMatch(/precisa estar na sala/);
+    voice('200', LUCAS, room.channelId);
+    voice('300', CURIOSO, room.channelId);
+    const kick = say(GUSTAVO, '!grupo expulsar <@300>', [CURIOSO]);
+    await waitFor(() => replyTo(kick));
+    expect(mock.callsTo('PATCH', new RegExp(`^/guilds/${GUILD_ID}/members/300$`)).at(-1)!.body).toEqual({ channel_id: null });
+    expect(mock.callsTo('PUT', new RegExp(`^/channels/${room.channelId}/permissions/300$`)).at(-1)!.body.deny).toBe(String(1n << 20n));
+
+    const lead = say(GUSTAVO, '!grupo lider <@200>', [LUCAS]);
+    await waitFor(() => replyTo(lead));
+    expect((await prisma.voiceRoom.findUniqueOrThrow({ where: { id: room.id } })).ownerId).toBe('200');
+
+    // Todos saem: depois do prazo, a sala é apagada.
+    voice('200', LUCAS, null);
+    voice('300', CURIOSO, null);
+    await until(async () => {
+      const r = await prisma.voiceRoom.findUniqueOrThrow({ where: { id: room.id } });
+      return Boolean(r.emptySince && r.emptySince > r.createdAt);
+    });
+    await cleanupEmptyRooms(client);
+    expect(await prisma.voiceRoom.count()).toBe(1);
+    await cleanupEmptyRooms(client, new Date(Date.now() + 2 * 60_000));
+    expect(await prisma.voiceRoom.count()).toBe(0);
+    expect(mock.callsTo('DELETE', new RegExp(`^/channels/${room.channelId}$`))).toHaveLength(1);
   });
 });

@@ -26,3 +26,9 @@ export function startOfNextMonth(now: Date, timeZone: string): Date {
   utc = guess - tzOffsetMs(new Date(utc), timeZone);
   return new Date(utc);
 }
+
+/** Dia no fuso informado, no formato "AAAA-MM-DD" (ex.: missões diárias). */
+export function dateKeyIn(now: Date, timeZone: string): string {
+  // en-CA formata como 2026-09-28.
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}

@@ -1,6 +1,7 @@
 import { prisma } from '../database/client.js';
 import { ACHIEVEMENTS } from './rules/achievements.js';
-import { computeRivalries, type DuelRecord } from './rules/rivalry.js';
+import { computeCommunityRivalries, computeRivalries, type DuelRecord, type DuelResult } from './rules/rivalry.js';
+import { type HonorContext } from './rules/honors.js';
 import { MatchStatus } from '../types/domain.js';
 import { ensureStats } from './players.js';
 import { getPosition } from './ranking.js';
@@ -46,8 +47,21 @@ export async function getProfile(playerId: string) {
   const seasonTitles = await prisma.season.count({ where: { championId: playerId } });
   const tournamentTitles = await countTournamentTitles(prisma, playerId);
 
+  const bestStreakEver = await prisma.playerSeasonStats.aggregate({ where: { playerId }, _max: { bestStreak: true } });
+  const duelWins = (await duelRecords(playerId)).filter((d) => d.won).length;
+  const honors: HonorContext = {
+    careerMatches: confirmed.length,
+    careerWins: allWins,
+    duelWins,
+    bestStreakEver: bestStreakEver._max.bestStreak ?? 0,
+    seasonTitles,
+    tournamentTitles,
+    rating: stats.rating,
+  };
+
   const total = stats.wins + stats.losses;
   return {
+    honors,
     player,
     season,
     stats,
@@ -89,4 +103,25 @@ export async function duelRecords(playerId: string): Promise<DuelRecord[]> {
 
 export async function getRivalries(playerId: string) {
   return computeRivalries(await duelRecords(playerId));
+}
+
+/** Todos os duelos 1v1 confirmados do servidor. */
+async function allDuels(): Promise<DuelResult[]> {
+  const matches = await prisma.match.findMany({
+    where: { status: MatchStatus.CONFIRMED, team1Id: null, team2Id: null, winnerSide: { not: null } },
+    include: { participants: true },
+  });
+  const duels: DuelResult[] = [];
+  for (const m of matches) {
+    if (m.participants.length !== 2) continue;
+    const winner = m.participants.find((p) => p.side === m.winnerSide);
+    const loser = m.participants.find((p) => p.side !== m.winnerSide);
+    if (winner && loser) duels.push({ winnerId: winner.playerId, loserId: loser.playerId, playedAt: m.confirmedAt ?? m.createdAt });
+  }
+  return duels;
+}
+
+/** Top 10 rivalidades da comunidade. */
+export async function getCommunityRivalries(limit = 10) {
+  return computeCommunityRivalries(await allDuels(), limit);
 }

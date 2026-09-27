@@ -29,6 +29,7 @@ model Player {
   achievements PlayerAchievement[]
   tempRoles    TempRole[]
   tempNickname TempNickname?
+  missions     PlayerMission[]
 }
 
 model Season {
@@ -154,8 +155,9 @@ model Tournament {
   startedAt     DateTime?
   finishedAt    DateTime?
 
-  entries TournamentEntry[]
-  matches Match[]
+  entries     TournamentEntry[]
+  matches     Match[]
+  weeklyEvent WeeklyEvent?
 }
 
 model TournamentEntry {
@@ -255,6 +257,7 @@ model GuildSettings {
   promoChannelId      String?
   freeGamesChannelId  String?
   musicChannelId      String?
+  hallChannelId       String?
   promoRoleId         String?
   championRoleId      String?
   language            String   @default("pt-BR")
@@ -308,4 +311,100 @@ model FreeGame {
   updatedAt   DateTime  @updatedAt
 
   @@index([active, endsAt])
+}
+
+/// Missão do dia: 3 por dia, geradas à meia-noite (fuso TIMEZONE).
+model DailyMission {
+  id        Int      @id @default(autoincrement())
+  /// Dia no fuso do servidor, "AAAA-MM-DD"
+  date      String
+  /// Tipo da missão (src/services/rules/missions.ts), ex.: "win_duels"
+  kind      String
+  target    Int
+  reward    Int
+  createdAt DateTime @default(now())
+
+  players PlayerMission[]
+
+  @@unique([date, kind])
+  @@index([date])
+}
+
+/// Progresso de um jogador numa missão do dia.
+model PlayerMission {
+  id          Int       @id @default(autoincrement())
+  missionId   Int
+  playerId    String
+  progress    Int       @default(0)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  mission DailyMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  player  Player       @relation(fields: [playerId], references: [id])
+
+  @@unique([missionId, playerId])
+  @@index([playerId])
+}
+
+/// Night Fluxer: votação do jogo, inscrição, sorteio de equipes e salas de voz.
+/// O campeonato em si (chave, resultados, ranking) é o Tournament ligado.
+model WeeklyEvent {
+  id           Int       @id @default(autoincrement())
+  tournamentId Int       @unique
+  /// VOTING (votação + inscrição) | RUNNING | FINISHED | CANCELLED
+  status       String    @default("VOTING")
+  /// Jogos da votação, em JSON: ["CS2","Valorant",...]
+  options      String
+  /// Jogo vencedor da votação
+  game         String?
+  closesAt     DateTime
+  createdAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  tournament Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  votes      EventVote[]
+  teams      EventTeam[]
+}
+
+/// Voto de um jogador no jogo do Night Fluxer (um por jogador; pode trocar).
+model EventVote {
+  id            Int      @id @default(autoincrement())
+  weeklyEventId Int
+  playerId      String
+  /// Índice da opção em WeeklyEvent.options
+  option        Int
+  createdAt     DateTime @default(now())
+
+  weeklyEvent WeeklyEvent @relation(fields: [weeklyEventId], references: [id], onDelete: Cascade)
+
+  @@unique([weeklyEventId, playerId])
+}
+
+/// Equipe sorteada no Night Fluxer, com a sala de voz criada para ela.
+model EventTeam {
+  id             Int     @id @default(autoincrement())
+  weeklyEventId  Int
+  teamId         Int?
+  name           String
+  voiceChannelId String?
+
+  weeklyEvent WeeklyEvent @relation(fields: [weeklyEventId], references: [id], onDelete: Cascade)
+}
+
+/// Sala de voz temporária criada com !grupo; some quando fica vazia.
+model VoiceRoom {
+  id           Int       @id @default(autoincrement())
+  channelId    String    @unique
+  ownerId      String
+  name         String
+  /// 0 = sem limite
+  userLimit    Int       @default(0)
+  isPrivate    Boolean   @default(false)
+  /// SHA-256 da senha opcional (nunca a senha em texto)
+  passwordHash String?
+  createdAt    DateTime  @default(now())
+  /// Desde quando está vazia (null = tem gente)
+  emptySince   DateTime?
+
+  @@index([ownerId])
 }
