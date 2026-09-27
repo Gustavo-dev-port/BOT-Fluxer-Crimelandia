@@ -4,6 +4,7 @@ import { updateHallOfFame } from './services/notifications/hallAnnouncer.js';
 import { onReaction } from './events/reactions.js';
 import { onVoiceEvent } from './events/voiceState.js';
 import { trackVoice } from './services/notifications/missionTracker.js';
+import { trackRooms } from './services/notifications/voiceRooms.js';
 import { startScheduler } from './schedulers/maintenanceScheduler.js';
 import { startFreeGameScheduler } from './schedulers/freeGameScheduler.js';
 import { startPromotionScheduler } from './schedulers/promotionScheduler.js';
@@ -24,6 +25,7 @@ const client = await FluxerClient.create(config.instanceUrl, config.token(), con
 let started = false;
 // Missões de voz: liga o rastreador antes de chegar o GUILD_CREATE com quem já está em voz.
 trackVoice(client);
+trackRooms(client);
 
 client.gateway.on('ready', async (user) => {
   log.info(`conectado ao Fluxer como ${user.username} (${user.id})`);

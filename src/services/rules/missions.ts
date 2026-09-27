@@ -3,7 +3,8 @@
  * O sorteio usa o próprio dia como semente, então é o mesmo em qualquer reinício do bot.
  */
 
-export type MissionKind = 'win_duels' | 'play_matches' | 'voice_minutes' | 'join_voice' | 'send_messages' | 'react_messages';
+export type MissionKind =
+  'win_duels' | 'play_matches' | 'voice_minutes' | 'join_voice' | 'send_messages' | 'react_messages' | 'group_invite';
 
 export interface MissionTier {
   target: number;
@@ -78,6 +79,15 @@ export const MISSION_TYPES: MissionType[] = [
     tiers: [
       { target: 5, reward: 20 },
       { target: 10, reward: 30 },
+    ],
+  },
+  {
+    kind: 'group_invite',
+    emoji: '🤝',
+    label: (n) => `Receba ${n} ${plural(n, 'amigo', 'amigos')} no seu grupo (!grupo)`,
+    tiers: [
+      { target: 1, reward: 40 },
+      { target: 2, reward: 70 },
     ],
   },
 ];

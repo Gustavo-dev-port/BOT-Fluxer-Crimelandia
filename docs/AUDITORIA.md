@@ -1,5 +1,7 @@
 # Auditoria — Fluxer BOT
 
+> Esta é a auditoria da v1.0. A da atualização v1.1 (Hall do Reino, missões diárias, rivalidades, Night Fluxer, salas temporárias e perfil medieval) está em [`AUDITORIA-v1.1.md`](AUDITORIA-v1.1.md).
+
 Estado do projeto em relação à especificação "FLUXER BOT — Bot Oficial da Comunidade Fluxer".
 
 **Decisão de plataforma:** a especificação pedia Discord.js e slash commands, mas o bot roda no **Fluxer**, por decisão do dono do projeto. As adaptações que isso exige estão marcadas com ⚙️.

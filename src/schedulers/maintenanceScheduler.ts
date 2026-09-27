@@ -8,7 +8,8 @@ import { announceSeasonEnd } from '../services/notifications/announcer.js';
 import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
 import { announceDailyMissions } from '../services/notifications/missionTracker.js';
 import { voicePresence } from '../services/voicePresence.js';
-import { closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
+import { cleanupEmptyRooms } from '../services/notifications/voiceRooms.js';
+import { cleanupEndedNights, closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 const log = scoped('agendador');
@@ -56,6 +57,7 @@ export function startScheduler(client: FluxerClient) {
       await removeExpiredRoles(client);
       await restoreExpiredNicknames(client);
       await closeDueWeeklyEvents(client);
+      await cleanupEndedNights(client);
       if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
     }),
     opts,
@@ -68,10 +70,13 @@ export function startScheduler(client: FluxerClient) {
     opts,
   );
 
-  // Minutos em voz contados a cada minuto (progresso em tempo real).
+  // A cada minuto: minutos em voz (progresso em tempo real) e salas temporárias vazias.
   cron.schedule(
     '* * * * *',
-    safe('minutos em voz', async () => voicePresence.flush()),
+    safe('voz', async () => {
+      voicePresence.flush();
+      await cleanupEmptyRooms(client);
+    }),
     opts,
   );
 

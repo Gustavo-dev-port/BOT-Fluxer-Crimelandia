@@ -10,8 +10,11 @@ import { type Actor, handleAccept, handleConfirm, handleDecline, handleDispute }
 import { mention } from '../embeds/format.js';
 import { refreshTournamentMessage } from '../services/notifications/tournamentAnnouncer.js';
 import { JOIN_EMOJI } from '../embeds/tournamentEmbed.js';
+import { castVote, NightStatus, nightByMessage, optionsOf, removeVote } from '../services/night.js';
+import { VOTE_EMOJIS, voteOption } from '../services/rules/night.js';
 import { trackReaction } from '../services/notifications/missionTracker.js';
 import { errorMeta, scoped } from '../utils/logger.js';
+import { reactionQueue } from '../utils/queue.js';
 
 const log = scoped('reações');
 
@@ -61,11 +64,37 @@ async function handlePromptReaction(client: FluxerClient, event: ReactionEvent):
   return true;
 }
 
+async function handleNightVote(client: FluxerClient, event: ReactionEvent, added: boolean): Promise<boolean> {
+  const bare = event.emoji.name.replace(/\uFE0F/g, '');
+  if (!VOTE_EMOJIS.some((e) => e.replace(/\uFE0F/g, '') === bare)) return false;
+  const night = await nightByMessage(event.message_id);
+  if (!night || night.status !== NightStatus.VOTING) return false;
+  const option = voteOption(event.emoji.name, optionsOf(night).length);
+  if (option === null) return true;
+  if (added) {
+    const user = await userOf(client, event);
+    if (user.bot) return true;
+    await castVote(night.id, refOf(user), option);
+  } else {
+    await removeVote(night.id, event.user_id, option);
+  }
+  await refreshTournamentMessage(client, night.tournamentId);
+  return true;
+}
+
 export async function onReaction(client: FluxerClient, event: ReactionEvent, added: boolean) {
   if (event.guild_id !== client.guildId || event.user_id === client.botId) return;
+  // Uma reação por vez: rajadas (ex.: todos reagindo ao Night Fluxer) não disputam o banco.
+  await reactionQueue(() => handleReaction(client, event, added));
   if (added) void trackReaction(client, event);
+}
+
+async function handleReaction(client: FluxerClient, event: ReactionEvent, added: boolean) {
   try {
     if (added && (await handlePromptReaction(client, event))) return;
+
+    // 1️⃣–5️⃣ no anúncio do Night Fluxer votam no jogo; tirar a reação desfaz o voto.
+    if (await handleNightVote(client, event, added)) return;
 
     // ✅ no anúncio de um campeonato individual inscreve; tirar a reação desinscreve.
     if (event.emoji.name.replace(/️/g, '') !== JOIN_EMOJI) return;

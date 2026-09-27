@@ -77,7 +77,12 @@ export const config = {
     /** Minutos de inscrição antes de gerar a chave. */
     registrationMinutes: envInt('WEEKLY_EVENT_REGISTRATION_MINUTES', 30),
     name: env('WEEKLY_EVENT_NAME', 'Night Fluxer'),
+    /** Jogo usado quando não há jogos para votar. */
     game: env('WEEKLY_EVENT_GAME', 'Livre'),
+    /** Tamanho das equipes sorteadas (1 = sempre individual). */
+    teamSize: envInt('NIGHT_TEAM_SIZE', 2),
+    /** Quantos jogos entram na votação (até 5). */
+    pollOptions: envInt('NIGHT_POLL_OPTIONS', 4),
   },
 
   promotions: {

@@ -9,7 +9,8 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Times** — 2v2, 3v3 ou squads de até 10
 - **Campeonatos** — chave simples (mata-mata) ou todos contra todos
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
-- **Eventos semanais** — toda sexta às 20h: _Night Fluxer_, inscrição reagindo com ✅
+- **Night Fluxer** — toda sexta às 20h: votação do jogo (1️⃣–4️⃣), inscrição com ✅, sorteio automático de equipes, uma sala de voz por equipe e chave; `!night` mostra o status
+- **Salas temporárias** — `!grupo` cria a sala de voz "Grupo do <nome>": nome, limite, privado/público, senha, convite, expulsão e troca de líder; some sozinha quando fica vazia
 - **Promoções** — Steam, Epic, GOG, Humble, Nuuvem e Green Man Gaming a cada 30 min, sem repetir
 - **Jogos grátis** — Epic, giveaways da Steam/GOG e free weekends a cada hora, com `!gratis`
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
@@ -42,7 +43,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 1. No Fluxer, crie uma aplicação (Configurações → aplicações/desenvolvedor). A criação gera o **token do bot** no formato `<application_id>.<secret>` — ele só aparece uma vez (`FLUXER_TOKEN`).
 2. Copie o ID do seu servidor (`FLUXER_GUILD_ID`).
 3. Suba o bot uma vez (passo 2): ele imprime no log o **link de convite** (`/v1/oauth2/authorize?client_id=…&scope=bot&permissions=…`) já com as permissões necessárias:
-   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (só para o `!setup`)_.
+   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (`!setup`, salas do Night Fluxer e do `!grupo`), Conectar e Mover membros (expulsar de um `!grupo`), Gerenciar mensagens (apagar mensagens com senha de grupo)_.
 4. Para os cargos funcionarem, o cargo do bot precisa ficar **acima** dos cargos que ele entrega (hierarquia do Fluxer).
 
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
@@ -188,6 +189,13 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!evento chave <id>`                                       | Mostra chave / classificação                                                           |
 | `!evento listar` · `sair <id>` · `cancelar <id>`           | Gestão de eventos                                                                      |
 | `!inscrever <id> ["Time"]` ou reagir ✅ no anúncio         | Entra no evento                                                                        |
+| `!night`                                                   | Status do Night Fluxer: fase, votação, inscritos, equipes, salas de voz e chave        |
+| `!grupo [criar] [nome]`                                    | Cria sua sala de voz temporária ("Grupo do <nome>")                                    |
+| `!grupo nome <nome>` · `limite <0-99>`                     | Renomeia / limita a sala (0 = sem limite)                                              |
+| `!grupo privado [senha]` · `publico` · `senha <s\|limpar>` | Privacidade e senha (a mensagem com a senha é apagada)                                 |
+| `!grupo convidar @amigo` · `entrar @líder <senha>`         | Libera um amigo / entra num grupo privado com senha                                    |
+| `!grupo expulsar @membro` · `lider @membro`                | Expulsa (tira da voz e bloqueia) / transfere a liderança                               |
+| `!grupo info` · `fechar`                                   | Detalhes / apaga a sala                                                                |
 
 ### Economia
 
@@ -267,7 +275,16 @@ Em partidas de time, usa-se a média de rating de cada lado e todos recebem a me
 
 **Partidas** — o banco registra vencedor, perdedor, jogo, duração e data. A duração vem do `!resultado` (ex.: `25min`, `1h20`) ou é medida do aceite até o resultado; o `!perfil` mostra a média.
 
-**Evento semanal** — `WEEKLY_EVENT_CRON` (padrão `0 20 * * 5`, sexta 20h no fuso `TIMEZONE`). Quem reagir com ✅ entra na chave; após `WEEKLY_EVENT_REGISTRATION_MINUTES` (30) a chave é gerada automaticamente. Com menos de 2 inscritos, o evento é cancelado.
+**Night Fluxer** — `WEEKLY_EVENT_CRON` (padrão `0 20 * * 5`, sexta 20h no fuso `TIMEZONE`):
+
+1. 🗳️ O anúncio em `#eventos` traz a votação entre os `NIGHT_POLL_OPTIONS` (4) jogos mais jogados nos últimos 30 dias (reaja com 1️⃣–4️⃣; tirar a reação desfaz o voto) e a inscrição (✅).
+2. ⏱️ Após `WEEKLY_EVENT_REGISTRATION_MINUTES` (30), vence o jogo mais votado (empate: o primeiro da lista).
+3. 🎲 As equipes de `NIGHT_TEAM_SIZE` (2) são sorteadas (Lobos, Dragões, Corvos…; quem sobra entra nas primeiras). Com menos de 2 equipes possíveis, o evento roda em 1v1.
+4. 🔊 O bot cria uma sala de voz por equipe (ou uma "Arena" no 1v1), na categoria do `#eventos`.
+5. ⚔️ A chave começa; os resultados vão com `!resultado` e atualizam o ranking como qualquer partida.
+6. 🧹 Quando o evento termina (ou é cancelado), as salas de voz são apagadas. Com menos de 2 inscritos, o evento é cancelado.
+
+**Salas temporárias** — `!grupo` cria a sala na categoria do `#comandos`. Sala nova sem ninguém some em 5 minutos; depois de usada, some 1 minuto após o último sair. Privado nega **Conectar** para @everyone e libera o líder, quem já está na sala e os convidados; a senha fica guardada só como hash. A missão "Receba N amigos no seu grupo" conta cada amigo uma vez por dia.
 
 ## Variáveis de ambiente
 
@@ -290,6 +307,7 @@ Todas estão comentadas no `.env.example`. As principais:
 | `PROMO_*`                                             | ver `.env.example`   | Promoções: fontes, desconto mínimo (40), menção (80), intervalo (30 min) |
 | `FREE_GAMES_*`                                        | ver `.env.example`   | Jogos grátis: fontes, intervalo (1 h)                                    |
 | `WEEKLY_EVENT_*`                                      | sexta 20h            | Evento semanal Night Fluxer                                              |
+| `NIGHT_TEAM_SIZE` / `NIGHT_POLL_OPTIONS`              | 2 / 4                | Tamanho das equipes sorteadas / jogos na votação                         |
 | `SHOP_VIP_ROLE_ID`                                    | —                    | Cargo entregue pelo item VIP da loja                                     |
 
 ## Deploy
@@ -299,9 +317,9 @@ Todas estão comentadas no `.env.example`. As principais:
 3. Atualizar: `git pull && docker compose up -d --build`.
 4. Logs: `docker compose logs -f bot` ou os arquivos no volume `bot-logs`.
 
-## Música (Lavalink)
+## Música (Lavalink / LiveKit)
 
-O módulo de música da especificação usa Lavalink, que só se conecta à voz do **Discord**. A voz do Fluxer usa **LiveKit** (docs.fluxer.app → Voice), então o Lavalink não funciona aqui. Por isso não há `/play` nem serviço `lavalink` no compose. O canal de música já pode ser configurado (`!config musica #canal`) para quando existir um player compatível com LiveKit (veja `docs/AUDITORIA.md`).
+A voz do Fluxer usa **LiveKit**, então o Lavalink (feito para a voz do Discord) não funciona aqui. A v1.1 pedia um player LiveKit que tocasse YouTube e Spotify "sem baixar conteúdo, só com metadados". Isso não é possível: os metadados não trazem o áudio, o Spotify não libera áudio para terceiros e tocar o YouTube exige extrair e retransmitir o áudio. Por isso ainda não há `!play`. O canal de música já pode ser configurado (`!config musica #canal`). O caminho viável está em `docs/AUDITORIA-v1.1.md` (Pendências para a V1.2).
 
 ## Estrutura
 
@@ -318,7 +336,7 @@ src/
 └── fluxer/       cliente da API do Fluxer
 ```
 
-Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Situação do projeto em [`docs/AUDITORIA.md`](docs/AUDITORIA.md).
+Detalhes em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md). Situação do projeto em [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (v1.0) e [`docs/AUDITORIA-v1.1.md`](docs/AUDITORIA-v1.1.md) (v1.1).
 
 ## Desenvolvimento
 

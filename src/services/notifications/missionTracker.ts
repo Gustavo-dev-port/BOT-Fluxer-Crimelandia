@@ -13,6 +13,7 @@ import type { MissionKind } from '../rules/missions.js';
 import { voicePresence } from '../voicePresence.js';
 import { sendTo } from '../channels.js';
 import { errorMeta, scoped } from '../../utils/logger.js';
+import { missionQueue } from '../../utils/queue.js';
 
 const log = scoped('missões');
 const voiceLog = scoped('voz');
@@ -42,7 +43,7 @@ async function announceCompleted(client: FluxerClient, completed: CompletedMissi
 /** Soma progresso e anuncia o que foi concluído. Erros ficam só no log. */
 export async function trackMission(client: FluxerClient, player: string | PlayerRef, kind: MissionKind, amount = 1, now = new Date()) {
   try {
-    await announceCompleted(client, await recordProgress(player, kind, amount, now));
+    await announceCompleted(client, await missionQueue(() => recordProgress(player, kind, amount, now)));
   } catch (err) {
     log.error(`falha ao registrar progresso (${kind})`, { user: typeof player === 'string' ? player : player.id, ...errorMeta(err) });
   }

@@ -15,6 +15,21 @@ import { generateDailyMissions, type MissionKind, MISSION_TYPES, MISSIONS_PER_DA
 import { dateKeyIn } from '../src/utils/calendar.js';
 import { VoicePresence } from '../src/services/voicePresence.js';
 import { claimRewards, ensureDailyMissions, getPlayerMissions, recordProgress, todayKey } from '../src/services/missions.js';
+import { seededRandom } from '../src/services/rules/missions.js';
+import { drawTeams, pollOptions, tally, voteOption, winningOption } from '../src/services/rules/night.js';
+import {
+  checkPassword,
+  defaultRoomName,
+  EMPTY_ROOM_GRACE_MS,
+  hashPassword,
+  NEW_ROOM_GRACE_MS,
+  roomName,
+  shouldDeleteRoom,
+} from '../src/services/rules/voiceRooms.js';
+import { castVote, closeNight, createNightEvent, removeVote, setTeamVoiceChannel, settleEndedNights } from '../src/services/night.js';
+import { cancelTournament, register, startTournament } from '../src/services/tournaments.js';
+import { seedDefaultGames } from '../src/services/games.js';
+import { UserError } from '../src/types/domain.js';
 
 const day = (n: number) => new Date(2026, 0, n);
 
@@ -271,5 +286,129 @@ describe('missões: casos de borda', () => {
   it('jogador só por ID que ainda não existe é ignorado (sem erro de chave estrangeira)', async () => {
     await prisma.dailyMission.create({ data: { date: todayKey(), kind: 'react_messages', target: 1, reward: 20 } });
     await expect(recordProgress('fantasma', 'react_messages')).resolves.toEqual([]);
+  });
+});
+
+// ─── Etapa 7: Night Fluxer e salas temporárias ─────────────────────────────
+
+describe('Night Fluxer: regras', () => {
+  it('voto por emoji, com ou sem U+FE0F, só dentro das opções', () => {
+    expect(voteOption('1️⃣', 4)).toBe(0);
+    expect(voteOption('3⃣', 4)).toBe(2);
+    expect(voteOption('5️⃣', 4)).toBeNull();
+    expect(voteOption('✅', 4)).toBeNull();
+  });
+  it('opções: mais jogados primeiro, sem "Livre", no máximo N', () => {
+    const games = ['CS2', 'EA FC', 'Fortnite', 'Livre', 'Valorant'];
+    expect(
+      pollOptions(
+        games,
+        new Map([
+          ['Valorant', 5],
+          ['Fortnite', 2],
+        ]),
+        3,
+      ),
+    ).toEqual(['Valorant', 'Fortnite', 'CS2']);
+  });
+  it('apuração: empate fica com a primeira opção', () => {
+    expect(tally(3, [2, 2, 1, 7])).toEqual([0, 1, 2]);
+    expect(winningOption(3, [1, 2])).toBe(1);
+    expect(winningOption(3, [])).toBe(0);
+  });
+  it('sorteio de equipes: todos entram uma vez, tamanhos diferem em no máximo 1', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const teams = drawTeams(ids, 2, seededRandom('x'))!;
+    expect(teams).toHaveLength(3);
+    expect(teams.flat().sort()).toEqual(ids);
+    expect(teams.map((t) => t.length).sort()).toEqual([2, 2, 3]);
+    expect(drawTeams(ids, 2, seededRandom('x'))).toEqual(teams);
+    expect(drawTeams(['a', 'b', 'c'], 2)).toBeNull(); // só 1 equipe: roda em 1v1
+    expect(drawTeams(ids, 1)).toBeNull();
+  });
+});
+
+describe('salas temporárias: regras', () => {
+  it('nome padrão e limpeza do nome', () => {
+    expect(defaultRoomName('Gustavo')).toBe('Grupo do Gustavo');
+    expect(roomName('  Sala\n  dos   Reis ')).toBe('Sala dos Reis');
+    expect(roomName('x'.repeat(150))).toHaveLength(100);
+    expect(() => roomName('   ')).toThrow();
+  });
+  it('senha guardada como hash, amarrada à sala', () => {
+    const h = hashPassword('c1', 'segredo');
+    expect(h).not.toContain('segredo');
+    expect(checkPassword('c1', 'segredo', h)).toBe(true);
+    expect(checkPassword('c2', 'segredo', h)).toBe(false);
+    expect(checkPassword('c1', 'x', null)).toBe(false);
+  });
+  it('apaga sala vazia depois do prazo (mais tempo para a sala nova)', () => {
+    const created = new Date(0);
+    const fresh = { createdAt: created, emptySince: created };
+    expect(shouldDeleteRoom(fresh, 0, new Date(NEW_ROOM_GRACE_MS - 1))).toBe(false);
+    expect(shouldDeleteRoom(fresh, 0, new Date(NEW_ROOM_GRACE_MS))).toBe(true);
+    const used = { createdAt: created, emptySince: new Date(10 * 60_000) };
+    expect(shouldDeleteRoom(used, 0, new Date(10 * 60_000 + EMPTY_ROOM_GRACE_MS))).toBe(true);
+    expect(shouldDeleteRoom(used, 1, new Date(99 * 60_000))).toBe(false);
+    expect(shouldDeleteRoom({ createdAt: created, emptySince: null }, 0, new Date(99 * 60_000))).toBe(false);
+  });
+});
+
+describe('Night Fluxer: banco', () => {
+  beforeEach(async () => {
+    await resetDb();
+    await seedDefaultGames();
+  });
+
+  async function enter(tournamentId: number, ...ids: string[]) {
+    for (const id of ids) await register(tournamentId, p(id));
+  }
+
+  it('votação, sorteio de equipes e chave em times', async () => {
+    const { tournament, event } = await createNightEvent();
+    const options = JSON.parse(event.options) as string[];
+    expect(options).toHaveLength(4);
+    expect(options).not.toContain('Livre');
+    expect(tournament).toMatchObject({ game: 'Em votação', teamSize: 1, isWeekly: true });
+
+    await enter(tournament.id, 'a', 'b', 'c', 'd', 'e');
+    await castVote(event.id, p('a'), 2);
+    await castVote(event.id, p('b'), 2);
+    await castVote(event.id, p('c'), 1);
+    await castVote(event.id, p('c'), 0); // trocou o voto
+    await removeVote(event.id, 'b', 1); // outra opção: não remove
+    await expect(castVote(event.id, p('d'), 9)).rejects.toThrow(UserError);
+
+    const closed = await closeNight(event.id, seededRandom('night'));
+    expect(closed.game).toBe(options[2]);
+    expect(closed.teams.map((t) => t.name)).toEqual(['Lobos', 'Dragões']);
+    expect(closed.teams.flatMap((t) => t.memberIds).sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+    await expect(castVote(event.id, p('e'), 0)).rejects.toThrow(/já terminou/);
+
+    const progress = await startTournament(tournament.id);
+    expect(progress.readyMatchIds).toHaveLength(1);
+    const match = await prisma.match.findUniqueOrThrow({ where: { id: progress.readyMatchIds[0] }, include: { participants: true } });
+    expect(match.participants).toHaveLength(5);
+    expect(match.game).toBe(options[2]);
+    const t = await prisma.tournament.findUniqueOrThrow({ where: { id: tournament.id } });
+    expect(t.teamSize).toBe(2);
+  });
+
+  it('poucos inscritos: 1v1 com arena; 1 inscrito: erro; cancelado vira CANCELLED com as salas', async () => {
+    const one = await createNightEvent();
+    await enter(one.tournament.id, 'a');
+    await expect(closeNight(one.event.id)).rejects.toThrow(/pelo menos 2/);
+
+    const two = await createNightEvent();
+    await enter(two.tournament.id, 'a', 'b', 'c');
+    const closed = await closeNight(two.event.id);
+    expect(closed.teams).toHaveLength(1);
+    expect(closed.teams[0]).toMatchObject({ name: 'Arena', memberIds: expect.arrayContaining(['a', 'b', 'c']) });
+    await setTeamVoiceChannel(closed.teams[0].id, 'vc-arena');
+
+    await cancelTournament(two.tournament.id);
+    const ended = await settleEndedNights();
+    expect(ended.map((e) => [e.event.status, e.voiceChannelIds])).toEqual([['CANCELLED', ['vc-arena']]]);
+    expect(await settleEndedNights()).toEqual([]);
   });
 });

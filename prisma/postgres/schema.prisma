@@ -155,8 +155,9 @@ model Tournament {
   startedAt     DateTime?
   finishedAt    DateTime?
 
-  entries TournamentEntry[]
-  matches Match[]
+  entries     TournamentEntry[]
+  matches     Match[]
+  weeklyEvent WeeklyEvent?
 }
 
 model TournamentEntry {
@@ -343,4 +344,67 @@ model PlayerMission {
 
   @@unique([missionId, playerId])
   @@index([playerId])
+}
+
+/// Night Fluxer: votação do jogo, inscrição, sorteio de equipes e salas de voz.
+/// O campeonato em si (chave, resultados, ranking) é o Tournament ligado.
+model WeeklyEvent {
+  id           Int       @id @default(autoincrement())
+  tournamentId Int       @unique
+  /// VOTING (votação + inscrição) | RUNNING | FINISHED | CANCELLED
+  status       String    @default("VOTING")
+  /// Jogos da votação, em JSON: ["CS2","Valorant",...]
+  options      String
+  /// Jogo vencedor da votação
+  game         String?
+  closesAt     DateTime
+  createdAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  tournament Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  votes      EventVote[]
+  teams      EventTeam[]
+}
+
+/// Voto de um jogador no jogo do Night Fluxer (um por jogador; pode trocar).
+model EventVote {
+  id            Int      @id @default(autoincrement())
+  weeklyEventId Int
+  playerId      String
+  /// Índice da opção em WeeklyEvent.options
+  option        Int
+  createdAt     DateTime @default(now())
+
+  weeklyEvent WeeklyEvent @relation(fields: [weeklyEventId], references: [id], onDelete: Cascade)
+
+  @@unique([weeklyEventId, playerId])
+}
+
+/// Equipe sorteada no Night Fluxer, com a sala de voz criada para ela.
+model EventTeam {
+  id             Int     @id @default(autoincrement())
+  weeklyEventId  Int
+  teamId         Int?
+  name           String
+  voiceChannelId String?
+
+  weeklyEvent WeeklyEvent @relation(fields: [weeklyEventId], references: [id], onDelete: Cascade)
+}
+
+/// Sala de voz temporária criada com !grupo; some quando fica vazia.
+model VoiceRoom {
+  id           Int       @id @default(autoincrement())
+  channelId    String    @unique
+  ownerId      String
+  name         String
+  /// 0 = sem limite
+  userLimit    Int       @default(0)
+  isPrivate    Boolean   @default(false)
+  /// SHA-256 da senha opcional (nunca a senha em texto)
+  passwordHash String?
+  createdAt    DateTime  @default(now())
+  /// Desde quando está vazia (null = tem gente)
+  emptySince   DateTime?
+
+  @@index([ownerId])
 }

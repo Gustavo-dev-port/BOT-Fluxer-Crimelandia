@@ -15,6 +15,8 @@ export const Permission = {
   EMBED_LINKS: 1n << 14n,
   READ_MESSAGE_HISTORY: 1n << 16n,
   MENTION_EVERYONE: 1n << 17n,
+  CONNECT: 1n << 20n,
+  MOVE_MEMBERS: 1n << 24n,
   MANAGE_NICKNAMES: 1n << 27n,
   MANAGE_ROLES: 1n << 28n,
   PIN_MESSAGES: 1n << 51n,
@@ -63,4 +65,7 @@ export const BOT_PERMISSIONS =
   Permission.PIN_MESSAGES |
   Permission.MANAGE_ROLES |
   Permission.MANAGE_NICKNAMES |
-  Permission.MANAGE_CHANNELS;
+  Permission.MANAGE_CHANNELS |
+  Permission.CONNECT |
+  Permission.MOVE_MEMBERS |
+  Permission.MANAGE_MESSAGES;
