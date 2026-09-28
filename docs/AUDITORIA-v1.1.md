@@ -234,6 +234,8 @@ As salas são apagadas no fim do evento. `!night` mostra a fase, os votos, os in
 
 ## LiveKit
 
+> **Atualização:** a música foi implementada depois desta auditoria. O bot entra na sala pelo op 4, recebe a credencial LiveKit (`VOICE_SERVER_UPDATE`) e publica o áudio do YouTube via `yt-dlp` + `ffmpeg`; o Spotify entra como busca no YouTube. Foi testada num servidor LiveKit real. Detalhes no README (seção Música). O texto abaixo descreve a situação no fechamento da v1.1.
+
 - **Salas:** no Fluxer, cada canal de voz é uma sala LiveKit. O bot cria, configura e apaga esses canais pela API documentada:
   - `POST /guilds/{id}/channels` com tipo 2 e `user_limit`;
   - `PATCH` e `DELETE /channels/{id}`;

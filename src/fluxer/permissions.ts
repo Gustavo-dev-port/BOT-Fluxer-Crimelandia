@@ -16,6 +16,7 @@ export const Permission = {
   READ_MESSAGE_HISTORY: 1n << 16n,
   MENTION_EVERYONE: 1n << 17n,
   CONNECT: 1n << 20n,
+  SPEAK: 1n << 21n,
   MOVE_MEMBERS: 1n << 24n,
   MANAGE_NICKNAMES: 1n << 27n,
   MANAGE_ROLES: 1n << 28n,
@@ -67,5 +68,6 @@ export const BOT_PERMISSIONS =
   Permission.MANAGE_NICKNAMES |
   Permission.MANAGE_CHANNELS |
   Permission.CONNECT |
+  Permission.SPEAK |
   Permission.MOVE_MEMBERS |
   Permission.MANAGE_MESSAGES;

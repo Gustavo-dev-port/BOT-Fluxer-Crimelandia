@@ -85,6 +85,20 @@ export const config = {
     pollOptions: envInt('NIGHT_POLL_OPTIONS', 4),
   },
 
+  music: {
+    enabled: envBool('MUSIC_ENABLED', true),
+    /** Caminho do yt-dlp (precisa estar instalado). */
+    ytdlpPath: env('YTDLP_PATH', 'yt-dlp'),
+    /** Volume inicial (0–150). */
+    defaultVolume: envInt('MUSIC_DEFAULT_VOLUME', 80),
+    /** Minutos com a sala vazia (ou sem nada tocando) até o bot sair. */
+    idleMinutes: envInt('MUSIC_IDLE_MINUTES', 5),
+    spotify: {
+      clientId: process.env.SPOTIFY_CLIENT_ID ?? '',
+      clientSecret: process.env.SPOTIFY_CLIENT_SECRET ?? '',
+    },
+  },
+
   promotions: {
     enabled: envBool('PROMO_ENABLED', true),
     /** A cada 30 minutos. */

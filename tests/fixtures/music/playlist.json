@@ -1,0 +1,24 @@
+{
+  "_type": "playlist",
+  "id": "PL123",
+  "title": "Lo-fi do Reino",
+  "entries": [
+    {
+      "_type": "url",
+      "id": "aaa11111111",
+      "url": "https://www.youtube.com/watch?v=aaa11111111",
+      "title": "Faixa 1",
+      "channel": "Canal A",
+      "duration": 120
+    },
+    {
+      "_type": "url",
+      "id": "bbb22222222",
+      "url": "https://www.youtube.com/watch?v=bbb22222222",
+      "title": "Faixa 2",
+      "channel": "Canal B",
+      "duration": 95.6
+    },
+    { "_type": "url", "id": "ccc33333333", "title": null }
+  ]
+}

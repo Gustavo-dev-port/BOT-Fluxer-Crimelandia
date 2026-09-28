@@ -23,6 +23,10 @@ src/
 │   ├── night.ts         Night Fluxer: evento, votos, fechamento com sorteio de equipes, encerramento
 │   ├── voicePresence.ts quem está em qual sala de voz; minutos e entradas (missões) e ocupação (salas temporárias)
 │   ├── hallOfFame.ts    Hall do Reino: campeão, MVP da semana, mais ativo, maior sequência, mais vitórias, mais FluxCoins
+│   ├── music/           música na voz do Fluxer (LiveKit):
+│   │                    voice.ts (op 4 → VOICE_SERVER_UPDATE → sala LiveKit, faixa de áudio), player.ts (quadros de 10 ms,
+│   │                    pausa, pular, volume, DataPackets), queue.ts (fila pura), youtube.ts (yt-dlp), spotify.ts (metadados),
+│   │                    audio.ts (yt-dlp → ffmpeg → PCM), musicService.ts (pedidos, fila salva, histórico, saída por inatividade)
 │   ├── ranking.ts, profile.ts, teams.ts, games.ts, shop.ts, economy.ts, achievements.ts, players.ts, settings.ts
 │   ├── promotions/      adaptadores por loja (steam, epic, gog, humble, itad) + promotionService
 │   ├── freeGames/       fontes (epic, itadGiveaways) + freeGameService
@@ -36,7 +40,7 @@ src/
 │   ├── client.ts        PrismaClient e transaction()
 │   └── *Repository.ts   GuildSettingsRepository, PromotionRepository, FreeGameRepository
 │
-├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, hallEmbed, format (menções, datas, barras de progresso, paleta)
+├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, hallEmbed, musicEmbed, format (menções, datas, barras de progresso, paleta)
 ├── schedulers/      Tarefas agendadas: manutenção (5 min), voz e salas vazias (1 min), Hall do Reino (10 min), missões (00:00),
 │                    Night Fluxer (weeklyEvent.ts), promoções (30 min), jogos grátis (1 h)
 ├── utils/           logger (Winston, com missions/voice/night.log), queue (filas de escrita), http (fetch com tempo limite e logs sem credenciais), args (parsing), calendar (fuso horário)
@@ -89,6 +93,7 @@ src/
 | `DailyMission`, `PlayerMission`                       | Missões do dia e o progresso/coleta de cada jogador                                            |
 | `WeeklyEvent`, `EventVote`, `EventTeam`               | Night Fluxer: votação, votos, equipes sorteadas e suas salas de voz (a chave é o `Tournament`) |
 | `VoiceRoom`                                           | Salas de voz temporárias do `!grupo` (líder, limite, privacidade, hash da senha)               |
+| `MusicQueue`, `MusicHistory`                          | Fila de músicas salva (volta depois de reiniciar) e músicas tocadas                            |
 | `ReactionPrompt`                                      | Mensagens que esperam reação (substitutas dos botões)                                          |
 | `TempRole`, `TempNickname`                            | Itens temporários da loja (cargos, cor, apelido especial)                                      |
 | `Game`, `PlayerTitle`, `PlayerAchievement`, `Setting` | Jogos disponíveis, títulos comprados, conquistas, valores avulsos (ex.: mensagem do placar)    |
@@ -99,8 +104,6 @@ Alguns nomes da especificação correspondem a tabelas com outro nome:
 | ---------------- | ------------------------------------------------------------------------ |
 | `Economy`        | `Player.coins` + `Transaction`                                           |
 | `Event`          | `Tournament`                                                             |
-| `MusicHistory`   | não existe, porque o módulo de música não roda no Fluxer (veja o README) |
-| `MusicQueue`     | não existe (mesmo motivo)                                                |
 | `WeeklyVote`     | `EventVote` (a especificação usa os dois nomes)                          |
 | `Rivalry`        | calculada na hora a partir das partidas (`rules/rivalry.ts`), sem tabela |
 

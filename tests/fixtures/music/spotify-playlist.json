@@ -1,0 +1,10 @@
+{
+  "name": "Playlist Teste",
+  "tracks": {
+    "items": [
+      { "track": { "name": "Hino", "duration_ms": 240000, "artists": [{ "name": "Banda" }] } },
+      { "track": null },
+      { "track": { "name": "Balada", "duration_ms": 210000, "artists": [{ "name": "Cantora" }] } }
+    ]
+  }
+}

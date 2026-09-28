@@ -15,7 +15,9 @@ RUN npm run build && npm prune --omit=dev
 
 FROM node:22-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# yt-dlp (música): binário independente oficial. O ffmpeg vem do pacote npm @ffmpeg-installer/ffmpeg.
+ADD --chmod=755 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux /usr/local/bin/yt-dlp
 ENV NODE_ENV=production \
     TZ=America/Sao_Paulo \
     LOG_DIR=/app/logs

@@ -16,6 +16,7 @@ import type { MessageCreateEvent, ReactionEvent } from './fluxer/types.js';
 import { seedDefaultGames } from './services/games.js';
 import { getActiveSeason } from './services/seasons.js';
 import { ensureDailyMissions } from './services/missions.js';
+import { musicService } from './services/music/musicService.js';
 import { errorMeta, scoped } from './utils/logger.js';
 
 const log = scoped('bot');
@@ -35,6 +36,10 @@ client.gateway.on('ready', async (user) => {
   log.info(`link de convite: ${client.inviteUrl(config.token(), BOT_PERMISSIONS)}`);
   await seedDefaultGames();
   await ensureDailyMissions();
+  if (config.music.enabled) {
+    const restored = await musicService(client).restoreQueue();
+    if (restored) log.info(`${restored} música(s) da fila salva; use !continuar para tocar`);
+  }
   const season = await getActiveSeason();
   log.info(`Temporada ${season.number} ativa até ${season.endsAt.toISOString()}`);
   await updateScoreboard(client).catch((err: unknown) => log.error('falha ao atualizar o placar', errorMeta(err)));
@@ -61,6 +66,9 @@ client.gateway.on('error', (err) => {
 
 async function shutdown(code = 0) {
   log.info('desligando...');
+  await musicService(client)
+    .voice.leave()
+    .catch(() => undefined);
   client.destroy();
   await prisma.$disconnect();
   process.exit(code);

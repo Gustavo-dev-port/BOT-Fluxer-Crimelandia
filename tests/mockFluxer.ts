@@ -40,6 +40,12 @@ export class MockFluxer {
   roles: any[] = [{ id: GUILD_ID, name: '@everyone', color: 0, position: 0, permissions: '0', hoist: false, mentionable: false }];
   memberRoles = new Map<string, string[]>();
   sessionId = 'sessao-1';
+  /** Credencial de voz devolvida no op 4; null = o Fluxer recusa (não responde). */
+  voiceGrant: ((channelId: string, connectionId: string) => { token: string; endpoint: string }) | null = () => ({
+    token: 'token-livekit',
+    endpoint: 'wss://livekit.fluxer.test',
+  });
+  private voiceSeq = 0;
   port = 0;
 
   async start() {
@@ -92,6 +98,24 @@ export class MockFluxer {
           channels: Object.entries(CHANNELS).map(([name, id]) => ({ id, name, type: 0, guild_id: GUILD_ID })),
           members: [],
         });
+      }
+      if (frame.op === 4) {
+        // Voice State Update (docs: /voice#placement): estado para todos + credencial LiveKit para a sessão.
+        const d = frame.d;
+        if (d.channel_id && this.voiceGrant) {
+          const connectionId = d.connection_id ?? `conn-${++this.voiceSeq}`;
+          this.send(ws, 'VOICE_STATE_UPDATE', {
+            guild_id: GUILD_ID,
+            channel_id: d.channel_id,
+            user_id: BOT_ID,
+            connection_id: connectionId,
+            member: { user: { id: BOT_ID, username: 'fluxerbot', bot: true }, roles: [] },
+          });
+          const grant = this.voiceGrant(d.channel_id, connectionId);
+          this.send(ws, 'VOICE_SERVER_UPDATE', { ...grant, connection_id: connectionId, channel_id: d.channel_id, guild_id: GUILD_ID });
+        } else if (!d.channel_id) {
+          this.send(ws, 'VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: null, user_id: BOT_ID, connection_id: d.connection_id });
+        }
       }
       if (frame.op === 6) {
         if (frame.d.session_id !== this.sessionId) return ws.send(JSON.stringify({ op: 9, d: false }));

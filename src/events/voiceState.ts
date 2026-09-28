@@ -2,6 +2,7 @@
 import type { FluxerClient } from '../fluxer/client.js';
 import type { GuildReady, PassiveUpdates, VoiceState } from '../fluxer/types.js';
 import { voicePresence } from '../services/voicePresence.js';
+import { musicService } from '../services/music/musicService.js';
 
 /** Encaminha GUILD_CREATE, VOICE_STATE_UPDATE e PASSIVE_UPDATES do servidor configurado. */
 export function onVoiceEvent(client: FluxerClient, event: string, data: unknown) {
@@ -10,7 +11,10 @@ export function onVoiceEvent(client: FluxerClient, event: string, data: unknown)
     if (guild.id === client.guildId && guild.voice_states) voicePresence.reset(guild.voice_states);
   } else if (event === 'VOICE_STATE_UPDATE') {
     const state = data as VoiceState;
-    if (state.guild_id === client.guildId) voicePresence.update(state);
+    if (state.guild_id !== client.guildId) return;
+    // O próprio bot: só interessa ao player (foi tirado da sala?).
+    if (state.user_id && state.user_id === client.botId) musicService(client).onBotVoiceState(state);
+    else voicePresence.update(state);
   } else if (event === 'PASSIVE_UPDATES') {
     const passive = data as PassiveUpdates;
     if (passive.guild_id === client.guildId) for (const s of passive.voice_states ?? []) voicePresence.update(s);
