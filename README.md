@@ -11,6 +11,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Temporadas** — reset automático, cargo exclusivo do campeão e histórico arquivado
 - **Night Fluxer** — toda sexta às 20h: votação do jogo (1️⃣–4️⃣), inscrição com ✅, sorteio automático de equipes, uma sala de voz por equipe e chave; `!night` mostra o status
 - **Salas temporárias** — `!grupo` cria a sala de voz "Grupo do <nome>": nome, limite, privado/público, senha, convite, expulsão e troca de líder; some sozinha quando fica vazia
+- **Música** — `!tocar` toca YouTube (e links do Spotify via YouTube) na sua sala de voz, pelo LiveKit do Fluxer: fila, pausar, pular, voltar, repetir, embaralhar, volume e player fixado em `#🎵┃musica`
 - **Promoções** — Steam, Epic, GOG, Humble, Nuuvem e Green Man Gaming a cada 30 min, sem repetir
 - **Jogos grátis** — Epic, giveaways da Steam/GOG e free weekends a cada hora, com `!gratis`
 - **FluxCoins** — moeda da comunidade, loja com títulos, cor de nick e eventos personalizados
@@ -43,7 +44,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 1. No Fluxer, crie uma aplicação (Configurações → aplicações/desenvolvedor). A criação gera o **token do bot** no formato `<application_id>.<secret>` — ele só aparece uma vez (`FLUXER_TOKEN`).
 2. Copie o ID do seu servidor (`FLUXER_GUILD_ID`).
 3. Suba o bot uma vez (passo 2): ele imprime no log o **link de convite** (`/v1/oauth2/authorize?client_id=…&scope=bot&permissions=…`) já com as permissões necessárias:
-   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (`!setup`, salas do Night Fluxer e do `!grupo`), Conectar e Mover membros (expulsar de um `!grupo`), Gerenciar mensagens (apagar mensagens com senha de grupo)_.
+   _Ver canais, Enviar mensagens, Inserir links, Adicionar reações, Ler histórico, Mencionar @everyone (evento semanal e cargo de promoções), Fixar mensagens (placar), Gerenciar cargos (loja e campeão), Gerenciar apelidos (apelido especial), Gerenciar canais (`!setup`, salas do Night Fluxer e do `!grupo`), Conectar e Falar (música), Mover membros (expulsar de um `!grupo`), Gerenciar mensagens (apagar mensagens com senha de grupo)_.
 4. Para os cargos funcionarem, o cargo do bot precisa ficar **acima** dos cargos que ele entrega (hierarquia do Fluxer).
 
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
@@ -138,14 +139,15 @@ Cada postagem tem imagem, nome, descrição, plataforma, data limite e o link **
 
 ## Canais
 
-| Canal               | Função                                                                    |
-| ------------------- | ------------------------------------------------------------------------- |
-| `#comandos`         | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`) |
-| `#placar`           | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada  |
-| `#partidas`         | Histórico das disputas confirmadas e das disputas contestadas             |
-| `#eventos`          | Campeonatos, evento semanal e fim de temporada                            |
-| `#💸┃promocoes`     | Promoções de jogos com 40%+ de desconto (a cada 30 min)                   |
-| `#🏰┃hall-do-reino` | Hall do Reino — mensagem fixada, atualizada a cada 10 min (só leitura)    |
+| Canal               | Função                                                                     |
+| ------------------- | -------------------------------------------------------------------------- |
+| `#comandos`         | Todos os comandos do bot (restrinja com `RESTRICT_COMMANDS_CHANNEL=true`)  |
+| `#placar`           | Ranking atualizado automaticamente — o bot edita a mesma mensagem fixada   |
+| `#partidas`         | Histórico das disputas confirmadas e das disputas contestadas              |
+| `#eventos`          | Campeonatos, evento semanal e fim de temporada                             |
+| `#💸┃promocoes`     | Promoções de jogos com 40%+ de desconto (a cada 30 min)                    |
+| `#🏰┃hall-do-reino` | Hall do Reino — mensagem fixada, atualizada a cada 10 min (só leitura)     |
+| `#🎵┃musica`        | Player de música fixado: o que está tocando, progresso e fila (só leitura) |
 
 Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 
@@ -308,6 +310,9 @@ Todas estão comentadas no `.env.example`. As principais:
 | `FREE_GAMES_*`                                        | ver `.env.example`   | Jogos grátis: fontes, intervalo (1 h)                                    |
 | `WEEKLY_EVENT_*`                                      | sexta 20h            | Evento semanal Night Fluxer                                              |
 | `NIGHT_TEAM_SIZE` / `NIGHT_POLL_OPTIONS`              | 2 / 4                | Tamanho das equipes sorteadas / jogos na votação                         |
+| `MUSIC_ENABLED` / `YTDLP_PATH` / `FFMPEG_PATH`        | true / `yt-dlp` / —  | Música; caminhos do yt-dlp e do ffmpeg (vazio = o do pacote npm)         |
+| `MUSIC_DEFAULT_VOLUME` / `MUSIC_IDLE_MINUTES`         | 80 / 5               | Volume inicial / minutos com a sala vazia até o bot sair                 |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`         | —                    | Opcional: álbuns e playlists do Spotify                                  |
 | `SHOP_VIP_ROLE_ID`                                    | —                    | Cargo entregue pelo item VIP da loja                                     |
 
 ## Deploy
@@ -317,9 +322,55 @@ Todas estão comentadas no `.env.example`. As principais:
 3. Atualizar: `git pull && docker compose up -d --build`.
 4. Logs: `docker compose logs -f bot` ou os arquivos no volume `bot-logs`.
 
-## Música (Lavalink / LiveKit)
+## Música (LiveKit)
 
-A voz do Fluxer usa **LiveKit**, então o Lavalink (feito para a voz do Discord) não funciona aqui. A v1.1 pedia um player LiveKit que tocasse YouTube e Spotify "sem baixar conteúdo, só com metadados". Isso não é possível: os metadados não trazem o áudio, o Spotify não libera áudio para terceiros e tocar o YouTube exige extrair e retransmitir o áudio. Por isso ainda não há `!play`. O canal de música já pode ser configurado (`!config musica #canal`). O caminho viável está em `docs/AUDITORIA-v1.1.md` (Pendências para a V1.2).
+O bot toca música nas salas de voz do Fluxer. A voz do Fluxer é **LiveKit** (o Lavalink, feito para o Discord, não serve aqui).
+
+**Como funciona:**
+
+1. Você entra numa sala de voz e usa `!tocar <música ou link>`.
+2. O bot pede a entrada no canal pelo Gateway (op 4) e recebe do Fluxer a credencial LiveKit (`VOICE_SERVER_UPDATE`).
+3. Ele entra na sala e publica uma faixa de áudio.
+4. O áudio sai do **YouTube** pelo `yt-dlp` e é decodificado pelo `ffmpeg`, tudo por pipe, sem salvar arquivos.
+5. Links do **Spotify** (faixa, álbum, playlist) viram buscas "artista - música" no YouTube, feitas quando chega a vez de cada uma.
+
+**Instalação:**
+
+- **yt-dlp:** precisa estar instalado.
+  - Windows: `winget install yt-dlp`
+  - Linux/macOS: `pip install -U yt-dlp`
+  - Se não estiver no PATH, aponte `YTDLP_PATH` para ele.
+  - Atualize com frequência (`yt-dlp -U`): o YouTube muda e versões velhas param de funcionar.
+- **ffmpeg:** vem sozinho com o `npm install` (pacote `@ffmpeg-installer/ffmpeg`).
+- **Docker:** a imagem já baixa o yt-dlp.
+- **Spotify (opcional):** para álbuns e playlists, crie um app em developer.spotify.com e preencha `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`. Sem isso, só links de faixa funcionam.
+- **Permissões do bot na sala:** Ver canal, **Conectar** e **Falar**.
+
+**Comandos:**
+
+| Comando                                        | Função                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `!tocar <busca ou link>`                       | Toca (ou põe na fila) uma música, playlist do YouTube, ou faixa/álbum/playlist do Spotify |
+| `!tocar proxima <busca ou link>`               | Põe logo depois da música atual                                                           |
+| `!pausar` · `!continuar`                       | Pausa / continua (`!continuar` também volta a tocar a fila salva depois de `!sair`)       |
+| `!pular` · `!voltar`                           | Próxima / anterior                                                                        |
+| `!fila [página]` · `!tocando`                  | Fila / música atual com barra de progresso                                                |
+| `!embaralhar` · `!repetir [musica\|fila\|off]` | Embaralha a fila / repete a música ou a fila                                              |
+| `!volume <0-150>`                              | Volume do bot para todos (cada pessoa ainda ajusta o próprio no Fluxer)                   |
+| `!remover <posição>`                           | Tira uma música da fila                                                                   |
+| `!parar` · `!sair`                             | Para e limpa a fila / sai da sala guardando a fila                                        |
+
+**Regras:**
+
+- Só quem está na mesma sala que o bot controla a música; admins controlam de qualquer lugar.
+- O **player fica fixado em `#🎵┃musica`** (criado pelo `!setup`) com capa, título, artista, duração, barra de progresso e quem pediu, atualizado sozinho.
+- A cada 5 s, e a cada mudança, o estado vai para a sala como **DataPacket** LiveKit (tópico `fluxer.music`), para players sincronizados.
+- Com a sala vazia (ou a fila terminada) por `MUSIC_IDLE_MINUTES` (5), o bot sai.
+- A fila fica salva no banco (`MusicQueue`) e sobrevive a reinícios; o que tocou fica em `MusicHistory`.
+- Log próprio em `logs/music.log`.
+- Missão diária nova: 🎵 "Escute N minutos de música com o bot".
+
+> ⚠️ **Termos do YouTube:** tocar áudio do YouTube por um bot contraria os termos de uso do YouTube. É o que a maioria dos bots de música faz, mas o YouTube pode limitar ou bloquear o acesso (erros como "Sign in to confirm you're not a bot"). A responsabilidade pelo uso é do dono do servidor.
 
 ## Estrutura
 
@@ -345,6 +396,7 @@ npm run dev            # bot com hot reload (aplica migrações antes)
 npm test               # testes: lógica pura, serviços num SQLite de teste e o bot
                        # inteiro contra um servidor Fluxer falso (tests/mockFluxer.ts)
 npm run test:postgres  # os mesmos testes num PostgreSQL (defina TEST_DATABASE_URL)
+npm run test:livekit   # música num LiveKit real (defina LIVEKIT_TEST_URL; veja tests/music.livekit.test.ts)
 npm run typecheck
 npm run lint           # ESLint (sem any, sem console fora dos scripts)
 npm run format         # Prettier

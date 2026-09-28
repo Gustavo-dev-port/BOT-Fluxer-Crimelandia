@@ -3,6 +3,8 @@ import { prisma } from '../src/database/client.js';
 /** Limpa todas as tabelas entre testes. */
 export async function resetDb() {
   await prisma.$transaction([
+    prisma.musicQueue.deleteMany(),
+    prisma.musicHistory.deleteMany(),
     prisma.eventVote.deleteMany(),
     prisma.eventTeam.deleteMany(),
     prisma.weeklyEvent.deleteMany(),

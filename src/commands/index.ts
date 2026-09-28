@@ -11,6 +11,7 @@ import { hall } from './hall.js';
 import { coletar, missoes } from './missoes.js';
 import { night } from './night.js';
 import { grupo } from './grupo.js';
+import { MUSIC_COMMANDS } from './musica.js';
 import { gratis } from './gratis.js';
 import { promocoes } from './promocoes.js';
 import { time } from './time.js';
@@ -39,7 +40,7 @@ const ajuda: Command = {
       });
       return;
     }
-    const categories: Category[] = ['Duelos', 'Ranking', 'Times e campeonatos', 'Economia', 'Promoções', 'Administração'];
+    const categories: Category[] = ['Duelos', 'Ranking', 'Times e campeonatos', 'Economia', 'Música', 'Promoções', 'Administração'];
     await ctx.reply({
       embeds: [
         {
@@ -90,6 +91,8 @@ export const commands: Command[] = [
   saldo,
   missoes,
   coletar,
+  // Música
+  ...MUSIC_COMMANDS,
   // Promoções
   promocoes,
   gratis,

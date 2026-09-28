@@ -239,6 +239,7 @@ describe('comandos e reações', () => {
       'Ranking',
       'Times e campeonatos',
       'Economia',
+      'Música',
       'Promoções',
       'Administração',
     ]);
@@ -720,4 +721,127 @@ describe('comandos e reações', () => {
     expect(await prisma.voiceRoom.count()).toBe(0);
     expect(mock.callsTo('DELETE', new RegExp(`^/channels/${room.channelId}$`))).toHaveLength(1);
   });
+
+  it('música: !tocar entra na sala (op 4 → credencial LiveKit), fila, pausa, volume, pular, player fixado, histórico e !parar', async () => {
+    const { MusicService, setMusicService } = await import('../src/services/music/musicService.js');
+    const { YouTubeResolver } = await import('../src/services/music/youtube.js');
+    const { SpotifyResolver } = await import('../src/services/music/spotify.js');
+    const { FakeSink, sineOpener } = await import('./musicHelpers.js');
+    const { guildSettings } = await import('../src/database/guildSettingsRepository.js');
+    const { readFileSync } = await import('node:fs');
+    const fx = (n: string) => readFileSync(new URL(`./fixtures/music/${n}`, import.meta.url), 'utf8');
+
+    const sinks: { endpoint: string; token: string; sink: InstanceType<typeof FakeSink> }[] = [];
+    const service = new MusicService(client, {
+      youtube: new YouTubeResolver('yt-dlp', async (_c, args) =>
+        args.includes('--flat-playlist') ? fx('playlist.json') : fx('video.json'),
+      ),
+      spotify: new SpotifyResolver('', ''),
+      opener: sineOpener(30),
+      sinkFactory: async (endpoint, token) => {
+        const sink = new FakeSink(1);
+        sinks.push({ endpoint, token, sink });
+        return sink;
+      },
+      grantTimeoutMs: 300,
+    });
+    setMusicService(service);
+    await guildSettings.setChannel(GUILD_ID, 'music', 'c-musica');
+    const voice = (id: string, u: ReturnType<typeof user>, channel: string | null) =>
+      mock.dispatch('VOICE_STATE_UPDATE', { guild_id: GUILD_ID, channel_id: channel, user_id: id, member: { user: u, roles: [] } });
+
+    // Fora da voz: precisa entrar numa sala.
+    const noVoice = say(GUSTAVO, '!tocar never gonna give you up');
+    expect((await waitFor(() => replyTo(noVoice)?.body)).content).toMatch(/Entre numa sala de voz/);
+
+    voice('100', GUSTAVO, 'voz-musica');
+    const play = say(GUSTAVO, '!tocar never gonna give you up');
+    const playReply = await waitFor(() => replyTo(play)?.body, 5000);
+    expect(playReply.embeds[0].title).toBe('🎵 Never Gonna Give You Up');
+    expect(playReply.embeds[0].description).toContain('Tocando em <#voz-musica>');
+    // Entrou pelo Gateway (op 4, surdo) e conectou no LiveKit com a credencial do Fluxer.
+    const op4 = mock.gatewayFrames.filter((f) => f.op === 4);
+    expect(op4[0].d).toEqual({ guild_id: GUILD_ID, channel_id: 'voz-musica', self_mute: false, self_deaf: true });
+    expect(sinks).toHaveLength(1);
+    expect(sinks[0]).toMatchObject({ endpoint: 'wss://livekit.fluxer.test', token: 'token-livekit' });
+    await until(async () => sinks[0].sink.frames.length > 20);
+
+    const pl = say(GUSTAVO, '!tocar https://www.youtube.com/playlist?list=PL123');
+    const plReply = await waitFor(() => replyTo(pl)?.body, 5000);
+    expect(plReply.embeds[0].title).toBe('📜 Lo-fi do Reino');
+    expect(plReply.embeds[0].description).toMatch(/\*\*2\*\* músicas adicionadas.*Adicionada à fila/s);
+    const q = say(GUSTAVO, '!fila');
+    expect((await waitFor(() => replyTo(q)?.body)).embeds[0].description).toMatch(/Faixa 1[\s\S]*Faixa 2/);
+
+    // Quem não está na sala não controla.
+    const outsider = say(LUCAS, '!pular');
+    expect((await waitFor(() => replyTo(outsider)?.body)).content).toMatch(/Entre em <#voz-musica>/);
+
+    const pause = say(GUSTAVO, '!pausar');
+    await waitFor(() => replyTo(pause));
+    const frozen = sinks[0].sink.frames.length;
+    await new Promise((r) => setTimeout(r, 80));
+    expect(sinks[0].sink.frames.length).toBeLessThanOrEqual(frozen + 1);
+    const resume = say(GUSTAVO, '!continuar');
+    await waitFor(() => replyTo(resume));
+    const vol = say(GUSTAVO, '!volume 50');
+    expect((await waitFor(() => replyTo(vol)?.body)).content).toBe('🔊 Volume: **50%**');
+    const skip = say(GUSTAVO, '!pular');
+    expect((await waitFor(() => replyTo(skip)?.body)).content).toContain('Never Gonna Give You Up');
+    await until(async () => service.player.queue.current?.title === 'Faixa 1');
+
+    // Player fixado em #musica, histórico e fila salvos no banco.
+    const pinned = await waitFor(() => mock.callsTo('POST', /^\/channels\/c-musica\/messages$/)[0], 5000);
+    expect(pinned.body.embeds[0].title).toMatch(/Tocando/);
+    await until(async () => (await prisma.musicHistory.count()) >= 2);
+    await until(async () => (await prisma.musicQueue.count()) >= 1);
+    const hist = await prisma.musicHistory.findMany({ orderBy: { id: 'asc' } });
+    expect(hist.map((h) => [h.title, h.channelId, h.requestedById])).toEqual([
+      ['Never Gonna Give You Up', 'voz-musica', '100'],
+      ['Faixa 1', 'voz-musica', '100'],
+    ]);
+
+    // !parar: sai da sala LiveKit e do canal (op 4 com channel_id null e o connection_id).
+    const stop = say(GUSTAVO, '!parar');
+    await waitFor(() => replyTo(stop), 5000);
+    expect(sinks[0].sink.closed).toBe(true);
+    expect(mock.gatewayFrames.filter((f) => f.op === 4).at(-1).d).toEqual({
+      guild_id: GUILD_ID,
+      channel_id: null,
+      connection_id: 'conn-1',
+    });
+    expect(service.voice.channelId).toBeNull();
+
+    // Fluxer recusa a entrada (sem credencial): erro claro, sem ficar preso.
+    mock.voiceGrant = null;
+    const refused = say(GUSTAVO, '!tocar never gonna');
+    expect((await waitFor(() => replyTo(refused)?.body, 5000)).content).toMatch(/não liberou a entrada/);
+    mock.voiceGrant = () => ({ token: 'token-livekit', endpoint: 'wss://livekit.fluxer.test' });
+
+    // Sala vazia por 5 minutos: o bot sai sozinho.
+    const again = say(GUSTAVO, '!tocar never gonna');
+    await waitFor(() => replyTo(again)?.body, 5000);
+    voice('100', GUSTAVO, null);
+    const { voicePresence } = await import('../src/services/voicePresence.js');
+    await until(async () => voicePresence.members('voz-musica').length === 0);
+    await service.tick(Date.now());
+    expect(service.voice.channelId).toBe('voz-musica');
+    await service.tick(Date.now() + 6 * 60_000);
+    expect(service.voice.channelId).toBeNull();
+    await waitFor(() => mock.calls.find((c) => /Saí de <#voz-musica>: ninguém ouvindo/.test(c.body?.content ?? '')));
+
+    // Moderador tira o bot da sala: a música para.
+    voice('100', GUSTAVO, 'voz-musica');
+    const third = say(GUSTAVO, '!tocar never gonna');
+    await waitFor(() => replyTo(third)?.body, 5000);
+    mock.dispatch('VOICE_STATE_UPDATE', {
+      guild_id: GUILD_ID,
+      channel_id: null,
+      user_id: BOT_ID,
+      member: { user: { id: BOT_ID, username: 'fluxerbot', bot: true }, roles: [] },
+    });
+    await until(async () => service.voice.channelId === null && service.player.state === 'idle');
+    voice('100', GUSTAVO, null);
+    setMusicService(null);
+  }, 30_000);
 });

@@ -5,7 +5,7 @@ import { parseSmallId, parseUserMention } from '../utils/args.js';
 import { UserError } from '../types/domain.js';
 import type { PlayerRef } from '../services/players.js';
 
-export type Category = 'Duelos' | 'Ranking' | 'Times e campeonatos' | 'Economia' | 'Promoções' | 'Administração';
+export type Category = 'Duelos' | 'Ranking' | 'Times e campeonatos' | 'Economia' | 'Música' | 'Promoções' | 'Administração';
 
 export interface Command {
   name: string;

@@ -407,3 +407,40 @@ model VoiceRoom {
 
   @@index([ownerId])
 }
+
+/// Fila de músicas salva (volta depois de reiniciar o bot). Uma linha por música, em ordem.
+model MusicQueue {
+  id              Int      @id @default(autoincrement())
+  guildId         String
+  position        Int
+  title           String
+  artist          String
+  /// Página no YouTube; vazio para item do Spotify ainda não buscado
+  url             String
+  /// Busca no YouTube para itens do Spotify
+  query           String?
+  durationSeconds Int?
+  thumbnail       String?
+  /// youtube | spotify | search
+  source          String
+  requestedById   String
+  createdAt       DateTime @default(now())
+
+  @@index([guildId, position])
+}
+
+/// Músicas tocadas.
+model MusicHistory {
+  id              Int      @id @default(autoincrement())
+  guildId         String
+  channelId       String
+  title           String
+  artist          String
+  url             String
+  durationSeconds Int?
+  requestedById   String
+  playedAt        DateTime @default(now())
+
+  @@index([guildId, playedAt])
+  @@index([requestedById])
+}

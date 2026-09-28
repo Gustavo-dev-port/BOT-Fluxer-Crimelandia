@@ -1,0 +1,9 @@
+{
+  "name": "Álbum Teste",
+  "tracks": {
+    "items": [
+      { "name": "Música A", "duration_ms": 180000, "artists": [{ "name": "Artista 1" }, { "name": "Artista 2" }] },
+      { "name": "Música B", "duration_ms": 200500, "artists": [{ "name": "Artista 1" }] }
+    ]
+  }
+}

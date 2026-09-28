@@ -110,6 +110,7 @@ export interface GuildReady {
 
 /** https://docs.fluxer.app/gateway/events/#voice-state-object */
 export interface VoiceState {
+  connection_id?: string | null;
   guild_id?: Snowflake | null;
   /** null = saiu da voz. */
   channel_id: Snowflake | null;
@@ -117,6 +118,17 @@ export interface VoiceState {
   member?: GuildMember | null;
   self_mute?: boolean;
   self_deaf?: boolean;
+}
+
+/** VOICE_SERVER_UPDATE: credencial LiveKit da conexão de voz desta sessão. */
+export interface VoiceServerUpdate {
+  token: string;
+  /** URL de sinalização LiveKit (ws:// ou wss://). */
+  endpoint: string;
+  connection_id: string;
+  channel_id: Snowflake;
+  guild_id?: Snowflake;
+  e2ee_key?: string;
 }
 
 /** PASSIVE_UPDATES (servidores com mais de 250 membros). */

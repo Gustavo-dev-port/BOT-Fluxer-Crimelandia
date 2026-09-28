@@ -12,6 +12,7 @@ const Op = {
   HEARTBEAT: 1,
   IDENTIFY: 2,
   PRESENCE_UPDATE: 3,
+  VOICE_STATE_UPDATE: 4,
   RESUME: 6,
   RECONNECT: 7,
   INVALID_SESSION: 9,
@@ -98,6 +99,20 @@ export class Gateway extends EventEmitter<GatewayEvents> {
     this.clearTimers();
     this.ws?.close(1000, 'Desligando');
     this.ws = null;
+  }
+
+  /**
+   * Entra, troca ou sai de um canal de voz (op 4, docs: /gateway/commands#voice-state-update).
+   * O Fluxer responde com VOICE_STATE_UPDATE e, ao entrar, VOICE_SERVER_UPDATE (token LiveKit).
+   */
+  updateVoiceState(state: {
+    guild_id: string;
+    channel_id: string | null;
+    connection_id?: string;
+    self_mute?: boolean;
+    self_deaf?: boolean;
+  }) {
+    this.send({ op: Op.VOICE_STATE_UPDATE, d: state });
   }
 
   private send(payload: Payload) {

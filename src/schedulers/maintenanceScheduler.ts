@@ -9,6 +9,7 @@ import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
 import { announceDailyMissions } from '../services/notifications/missionTracker.js';
 import { voicePresence } from '../services/voicePresence.js';
 import { cleanupEmptyRooms } from '../services/notifications/voiceRooms.js';
+import { musicService } from '../services/music/musicService.js';
 import { cleanupEndedNights, closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
@@ -76,6 +77,7 @@ export function startScheduler(client: FluxerClient) {
     safe('voz', async () => {
       voicePresence.flush();
       await cleanupEmptyRooms(client);
+      await musicService(client).tick();
     }),
     opts,
   );

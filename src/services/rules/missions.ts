@@ -4,7 +4,7 @@
  */
 
 export type MissionKind =
-  'win_duels' | 'play_matches' | 'voice_minutes' | 'join_voice' | 'send_messages' | 'react_messages' | 'group_invite';
+  'win_duels' | 'play_matches' | 'voice_minutes' | 'join_voice' | 'send_messages' | 'react_messages' | 'group_invite' | 'music_minutes';
 
 export interface MissionTier {
   target: number;
@@ -88,6 +88,15 @@ export const MISSION_TYPES: MissionType[] = [
     tiers: [
       { target: 1, reward: 40 },
       { target: 2, reward: 70 },
+    ],
+  },
+  {
+    kind: 'music_minutes',
+    emoji: '🎵',
+    label: (n) => `Escute ${n} minutos de música com o bot`,
+    tiers: [
+      { target: 30, reward: 30 },
+      { target: 60, reward: 60 },
     ],
   },
 ];
