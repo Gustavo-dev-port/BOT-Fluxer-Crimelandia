@@ -5,3 +5,4 @@ prisma/*.db*
 logs
 tests
 .git
+src/generated

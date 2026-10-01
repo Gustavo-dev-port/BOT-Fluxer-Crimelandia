@@ -6,8 +6,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 export function toPostgres(sqliteSchema) {
-  const out = sqliteSchema.replace(/(datasource db \{[^}]*provider\s*=\s*)"sqlite"/, '$1"postgresql"');
+  let out = sqliteSchema.replace(/(datasource db \{[^}]*provider\s*=\s*)"sqlite"/, '$1"postgresql"');
   if (out === sqliteSchema) throw new Error('provider "sqlite" não encontrado no datasource');
+  // O schema do PostgreSQL fica um nível abaixo (prisma/postgres/): ajusta a saída do cliente.
+  const withOutput = out.replace(/output(\s*)= "\.\.\/src\/generated\/prisma"/, 'output$1= "../../src/generated/prisma"');
+  if (withOutput === out) throw new Error('output "../src/generated/prisma" não encontrado no generator');
+  out = withOutput;
   return `// ARQUIVO GERADO por scripts/sync-postgres-schema.mjs — não edite; edite prisma/schema.prisma.\n${out}`;
 }
 

@@ -3,13 +3,17 @@
 // Status e formatos são armazenados como String; os valores válidos estão
 // documentados em src/lib/types.ts.
 
+// Prisma 7: o cliente é gerado em src/generated/prisma (fora do git) e conecta por um
+// adaptador (libSQL no SQLite, pg no PostgreSQL). A URL do banco fica em prisma.config.ts.
 generator client {
-  provider = "prisma-client-js"
+  provider            = "prisma-client"
+  output              = "../../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Player {

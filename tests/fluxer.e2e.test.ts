@@ -731,16 +731,16 @@ describe('comandos e reações', () => {
     const { readFileSync } = await import('node:fs');
     const fx = (n: string) => readFileSync(new URL(`./fixtures/music/${n}`, import.meta.url), 'utf8');
 
-    const sinks: { endpoint: string; token: string; sink: InstanceType<typeof FakeSink> }[] = [];
+    const sinks: { endpoint: string; token: string; sink: InstanceType<typeof FakeSink>; drop: () => void }[] = [];
     const service = new MusicService(client, {
       youtube: new YouTubeResolver('yt-dlp', async (_c, args) =>
         args.includes('--flat-playlist') ? fx('playlist.json') : fx('video.json'),
       ),
       spotify: new SpotifyResolver('', ''),
       opener: sineOpener(30),
-      sinkFactory: async (endpoint, token) => {
+      sinkFactory: async (endpoint, token, drop) => {
         const sink = new FakeSink(1);
-        sinks.push({ endpoint, token, sink });
+        sinks.push({ endpoint, token, sink, drop });
         return sink;
       },
       grantTimeoutMs: 300,
@@ -841,6 +841,21 @@ describe('comandos e reações', () => {
       member: { user: { id: BOT_ID, username: 'fluxerbot', bot: true }, roles: [] },
     });
     await until(async () => service.voice.channelId === null && service.player.state === 'idle');
+
+    // A sala LiveKit cai sozinha com músicas na fila: um aviso só, fila guardada para o !continuar.
+    const fourth = say(GUSTAVO, '!tocar https://www.youtube.com/playlist?list=PL123');
+    await waitFor(() => replyTo(fourth)?.body, 5000);
+    await until(async () => service.player.state === 'playing');
+    const before = mock.calls.length;
+    sinks.at(-1)!.drop();
+    await until(async () => service.voice.channelId === null && service.player.state === 'idle');
+    await until(async () => mock.calls.slice(before).some((c) => /conexão de voz caiu/.test(c.body?.content ?? '')));
+    await new Promise((r) => setTimeout(r, 100));
+    const warnings = mock.calls.slice(before).filter((c) => /conexão de voz caiu|Não consegui tocar/.test(c.body?.content ?? ''));
+    expect(warnings.map((w) => w.body.content)).toEqual([
+      '⚠️ A conexão de voz caiu. 2 música(s) guardadas: entre numa sala e use `!continuar`.',
+    ]);
+    expect(service.player.queue.snapshot().map((x) => x.title)).toEqual(['Faixa 1', 'Faixa 2']);
     voice('100', GUSTAVO, null);
     setMusicService(null);
   }, 30_000);

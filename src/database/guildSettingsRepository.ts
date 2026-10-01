@@ -1,7 +1,7 @@
 /**
  * Repositório de GuildSettings: canais e cargos configurados por servidor.
  */
-import type { GuildSettings } from '@prisma/client';
+import type { GuildSettings } from '../generated/prisma/client.js';
 import { type Db, prisma } from './client.js';
 
 /** Campos de canal que o bot usa, por chave lógica. */
