@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../generated/prisma/client.js';
 import { config } from '../config.js';
 import { type Db, prisma, transaction } from '../database/client.js';
 import { advanceTarget, roundCount, roundRobin, roundRobinStandings, singleEliminationBracket } from './rules/bracket.js';

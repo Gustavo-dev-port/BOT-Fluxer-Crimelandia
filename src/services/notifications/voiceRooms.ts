@@ -2,7 +2,7 @@
  * Salas de voz temporárias (!grupo): criação, ajustes, expulsão, liderança e
  * limpeza automática das salas vazias.
  */
-import type { VoiceRoom } from '@prisma/client';
+import type { VoiceRoom } from '../../generated/prisma/client.js';
 import { prisma } from '../../database/client.js';
 import type { FluxerClient } from '../../fluxer/client.js';
 import { Permission } from '../../fluxer/permissions.js';

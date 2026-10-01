@@ -37,7 +37,8 @@ src/
 │   └── channels.ts      canal configurado (GuildSettings) ou encontrado pelo nome
 │
 ├── database/        Acesso ao banco (Prisma)
-│   ├── client.ts        PrismaClient e transaction()
+│   ├── client.ts        PrismaClient (Prisma 7, adaptador libSQL ou pg conforme a DATABASE_URL) e transaction()
+│   ├── url.ts           resolve o caminho do SQLite a partir de prisma/ (o bot e o CLI usam o mesmo arquivo)
 │   └── *Repository.ts   GuildSettingsRepository, PromotionRepository, FreeGameRepository
 │
 ├── embeds/          Montagem das mensagens: matchEmbeds, tournamentEmbed, promotionEmbed, freeGameEmbed, hallEmbed, musicEmbed, format (menções, datas, barras de progresso, paleta)
@@ -45,6 +46,7 @@ src/
 │                    Night Fluxer (weeklyEvent.ts), promoções (30 min), jogos grátis (1 h)
 ├── utils/           logger (Winston, com missions/voice/night.log), queue (filas de escrita), http (fetch com tempo limite e logs sem credenciais), args (parsing), calendar (fuso horário)
 ├── types/           domain.ts: status, formatos e UserError
+├── generated/       Prisma Client gerado (npx prisma generate; fora do git)
 │
 ├── fluxer/          Cliente da API do Fluxer, escrito a partir de docs.fluxer.app
 │   ├── rest.ts          descoberta (/.well-known/fluxer) + HTTP API (Authorization: Bot, 429/retry_after)
@@ -111,7 +113,7 @@ Outras notas:
 
 - **Partidas genéricas:** um duelo 1v1 e um confronto de times são a mesma coisa em `Match`, com `MatchParticipant.side` = 1 ou 2.
 - **Chave de mata-mata:** todas as partidas são criadas no início. As das rodadas seguintes ficam `WAITING` até os dois vencedores chegarem.
-- **Dois bancos:** `prisma/schema.prisma` é a fonte (SQLite, desenvolvimento). `prisma/postgres/schema.prisma` é gerado a partir dele (PostgreSQL, produção). Cada um tem suas migrações.
+- **Dois bancos:** `prisma/schema.prisma` é a fonte (SQLite, desenvolvimento). `prisma/postgres/schema.prisma` é gerado a partir dele (PostgreSQL, produção). Cada um tem suas migrações e seu arquivo de configuração (`prisma.config.ts` e `prisma.postgres.config.ts`).
 
 ## Estendendo
 

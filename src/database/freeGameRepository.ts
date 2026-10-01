@@ -1,5 +1,5 @@
 /** Repositório de jogos grátis já vistos/publicados. */
-import type { FreeGame } from '@prisma/client';
+import type { FreeGame } from '../generated/prisma/client.js';
 import { type Db, prisma } from './client.js';
 import type { FreeGameOffer } from '../services/freeGames/types.js';
 

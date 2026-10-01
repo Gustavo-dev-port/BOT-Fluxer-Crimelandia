@@ -21,8 +21,8 @@
     "format:check": "prettier --check .",
     "test:postgres": "node scripts/test-postgres.mjs",
     "db:postgres:sync": "node scripts/sync-postgres-schema.mjs",
-    "db:postgres:generate": "prisma generate --schema prisma/postgres/schema.prisma",
-    "db:postgres:deploy": "prisma migrate deploy --schema prisma/postgres/schema.prisma",
+    "db:postgres:generate": "prisma generate --config prisma.postgres.config.ts",
+    "db:postgres:deploy": "prisma migrate deploy --config prisma.postgres.config.ts",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "test:livekit": "vitest run tests/music.livekit.test.ts"
   },
@@ -37,10 +37,12 @@
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@livekit/rtc-node": "^1.1.0",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-libsql": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "dotenv": "^18.0.4",
     "node-cron": "^4.6.0",
-    "prisma": "^6.19.3",
+    "prisma": "^7.10.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
@@ -62,5 +64,9 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "mysql2": "^3.23.1"
+  }
 }

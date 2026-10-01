@@ -30,7 +30,7 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 | Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                                                                  |
 | API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                                                               |
 | SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)                                                         |
-| Prisma 6                | ORM e migrações                                                                                                    |
+| Prisma 7                | ORM e migrações                                                                                                    |
 | node-cron               | Temporadas, expirações e evento semanal                                                                            |
 | Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta)                                              |
 | Winston                 | Logs no console, em `logs/error.log` / `logs/combined.log` e por módulo (`missions.log`, `voice.log`, `night.log`) |
@@ -53,7 +53,7 @@ Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para el
 
 ```bash
 cp .env.example .env         # preencha FLUXER_TOKEN e FLUXER_GUILD_ID
-npm install                  # também gera o Prisma Client
+npm install                  # também gera o Prisma Client (em src/generated/prisma)
 npm run dev                  # aplica as migrações (SQLite em prisma/fluxer.db) e sobe o bot
 ```
 
@@ -86,13 +86,20 @@ O Prisma fixa o tipo de banco dentro do schema, então há dois:
 - `prisma/schema.prisma` — a **fonte da verdade** (SQLite, desenvolvimento).
 - `prisma/postgres/schema.prisma` — **gerado** a partir do primeiro, só troca o provider (produção).
 
+O projeto usa o **Prisma 7**:
+
+- A conexão vem de `prisma.config.ts` (SQLite) e `prisma.postgres.config.ts` (PostgreSQL), não mais do schema. Os comandos do PostgreSQL usam `--config prisma.postgres.config.ts`.
+- O Prisma Client é gerado em `src/generated/prisma` (ignorado pelo git). Se aparecer erro de import nessa pasta, rode `npx prisma generate`.
+- O bot fala com o banco por adaptadores: `@prisma/adapter-libsql` (SQLite) e `@prisma/adapter-pg` (PostgreSQL), escolhidos pela `DATABASE_URL`.
+- No SQLite, um caminho relativo (`file:./fluxer.db`) continua sendo relativo à pasta `prisma/`, para o bot e o CLI. Pastas com espaço ou acento no caminho funcionam.
+
 Ao mudar o banco:
 
 ```bash
 npm run db:migrate -- --name minha_mudanca   # 1. migração SQLite
 npm run db:postgres:sync                      # 2. regenera o schema do PostgreSQL
 # 3. migração PostgreSQL (precisa de um PostgreSQL local vazio em DATABASE_URL):
-npx prisma migrate dev --schema prisma/postgres/schema.prisma --name minha_mudanca --create-only
+npx prisma migrate dev --config prisma.postgres.config.ts --name minha_mudanca --create-only
 ```
 
 Um teste falha se os dois schemas ficarem diferentes.

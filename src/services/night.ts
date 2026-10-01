@@ -3,7 +3,7 @@
  * equipes e salas de voz. A chave, os resultados e o ranking usam o campeonato
  * (Tournament) ligado ao evento.
  */
-import type { EventTeam, WeeklyEvent } from '@prisma/client';
+import type { EventTeam, WeeklyEvent } from '../generated/prisma/client.js';
 import { config } from '../config.js';
 import { prisma, transaction } from '../database/client.js';
 import { MatchStatus, TournamentFormat, TournamentStatus, UserError } from '../types/domain.js';

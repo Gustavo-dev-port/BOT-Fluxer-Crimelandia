@@ -12,7 +12,7 @@ if (!process.env.TEST_DATABASE_URL) {
 const run = (cmd) => execSync(cmd, { stdio: 'inherit' });
 let code = 0;
 try {
-  run('npx prisma generate --schema prisma/postgres/schema.prisma');
+  run('npx prisma generate --config prisma.postgres.config.ts');
   run('npx vitest run');
 } catch {
   code = 1;

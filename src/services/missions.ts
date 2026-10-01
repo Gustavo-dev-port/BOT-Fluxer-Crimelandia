@@ -1,7 +1,7 @@
 /**
  * Missões diárias: geração, progresso e coleta de recompensas.
  */
-import type { DailyMission, PlayerMission } from '@prisma/client';
+import type { DailyMission, PlayerMission } from '../generated/prisma/client.js';
 import { config } from '../config.js';
 import { type Db, prisma, transaction } from '../database/client.js';
 import { dateKeyIn } from '../utils/calendar.js';

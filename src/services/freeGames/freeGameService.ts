@@ -5,7 +5,7 @@
  * - sem canal configurado, nada é marcado como visto;
  * - encerra os que passaram do prazo.
  */
-import type { FreeGame } from '@prisma/client';
+import type { FreeGame } from '../../generated/prisma/client.js';
 import type { FreeGameRepository } from '../../database/freeGameRepository.js';
 import type { Logger } from '../promotions/promotionService.js';
 import type { FreeGameOffer, FreeGameSource } from './types.js';

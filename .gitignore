@@ -7,3 +7,5 @@ prisma/*.db*
 coverage/
 tests/*.db*
 logs/
+# Cliente do Prisma 7, gerado por "prisma generate" (npm install)
+src/generated/

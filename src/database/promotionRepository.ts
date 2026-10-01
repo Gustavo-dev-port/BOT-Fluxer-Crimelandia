@@ -1,5 +1,5 @@
 /** Repositório de promoções já vistas/publicadas. */
-import type { Promotion } from '@prisma/client';
+import type { Promotion } from '../generated/prisma/client.js';
 import { type Db, prisma } from './client.js';
 import type { PromotionOffer } from '../services/promotions/types.js';
 
