@@ -66,6 +66,7 @@ export class MusicService {
     private readonly deps: MusicDeps = defaultDeps(),
   ) {
     this.voice = new VoiceConnection(client, deps.sinkFactory, deps.grantTimeoutMs);
+    this.voice.onDropped = () => void this.onVoiceDropped();
     this.player = new MusicPlayer(
       deps.opener,
       () => this.voice.sink,
@@ -310,6 +311,21 @@ export class MusicService {
       }
     }
     if (this.player.state !== 'idle') this.refreshPlayer();
+  }
+
+  /** A conexão de voz caiu sozinha: guarda a fila para o !continuar e avisa uma vez. */
+  private async onVoiceDropped() {
+    const channel = this.voice.channelId;
+    const saved = this.player.queue.snapshot();
+    log.warn('a conexão de voz caiu; parando a música', { channel, queued: saved.length });
+    this.player.stop();
+    await this.player.idle();
+    this.player.queue.add(saved);
+    await this.saveQueue().catch((err: unknown) => log.error('falha ao salvar a fila', errorMeta(err)));
+    this.refreshPlayer();
+    await this.announce({
+      content: `⚠️ A conexão de voz caiu.${saved.length ? ` ${saved.length} música(s) guardadas: entre numa sala e use \`!continuar\`.` : ''}`,
+    });
   }
 
   /** O próprio bot saiu da voz por fora (moderador desconectou, canal apagado...). */

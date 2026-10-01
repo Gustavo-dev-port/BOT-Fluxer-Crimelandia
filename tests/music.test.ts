@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+import type { FluxerClient } from '../src/fluxer/client.js';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -319,5 +321,51 @@ describe('pipeline real yt-dlp → ffmpeg', () => {
   it('yt-dlp ausente: erro que explica como resolver', async () => {
     const yt = new YouTubeResolver('/caminho/que/nao/existe/yt-dlp');
     await expect(yt.search('x', '1')).rejects.toThrow(/Instale o yt-dlp ou defina YTDLP_PATH/);
+  });
+});
+
+describe('conexão de voz', () => {
+  /** Cliente Fluxer mínimo: o Gateway responde ao op 4 com a credencial, como o Fluxer. */
+  function fakeClient() {
+    const gateway = new EventEmitter() as EventEmitter & { updateVoiceState: (d: Record<string, unknown>) => void };
+    const sent: Record<string, unknown>[] = [];
+    let n = 0;
+    gateway.updateVoiceState = (d) => {
+      sent.push(d);
+      if (d.channel_id) {
+        const id = `conn-${++n}`;
+        setTimeout(
+          () =>
+            gateway.emit('dispatch', 'VOICE_SERVER_UPDATE', {
+              token: 't',
+              endpoint: 'wss://x',
+              connection_id: id,
+              channel_id: d.channel_id,
+              guild_id: 'g',
+            }),
+          5,
+        );
+      }
+    };
+    return { client: { guildId: 'g', gateway } as unknown as FluxerClient, sent };
+  }
+
+  it('dois pedidos ao mesmo tempo: uma entrada (op 4) e uma conexão LiveKit só', async () => {
+    const { VoiceConnection } = await import('../src/services/music/voice.js');
+    const { client, sent } = fakeClient();
+    let sinks = 0;
+    const voice = new VoiceConnection(client, async () => {
+      sinks++;
+      return new FakeSink();
+    });
+    const [a, b] = await Promise.all([voice.join('sala'), voice.join('sala')]);
+    expect(a).toBe(b);
+    expect(sinks).toBe(1);
+    expect(sent.filter((d) => d.channel_id)).toHaveLength(1);
+    // Trocar de sala sai da anterior (com o connection_id) antes de entrar na nova.
+    await voice.join('outra');
+    expect(sent.map((d) => d.channel_id ?? `sair:${d.connection_id}`)).toEqual(['sala', 'sair:conn-1', 'outra']);
+    await voice.leave();
+    expect(voice.channelId).toBeNull();
   });
 });
