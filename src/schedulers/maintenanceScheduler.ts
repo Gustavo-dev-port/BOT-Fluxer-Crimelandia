@@ -11,6 +11,8 @@ import { voicePresence } from '../services/voicePresence.js';
 import { cleanupEmptyRooms } from '../services/notifications/voiceRooms.js';
 import { musicService } from '../services/music/musicService.js';
 import { cleanupEndedNights, closeDueWeeklyEvents, openWeeklyEvent } from './weeklyEvent.js';
+import { runPromotions } from '../services/notifications/onboarding.js';
+import type { Stoppable } from './types.js';
 import { errorMeta, scoped } from '../utils/logger.js';
 
 const log = scoped('agendador');
@@ -46,55 +48,78 @@ export async function restoreExpiredNicknames(client: FluxerClient, now = new Da
   }
 }
 
-export function startScheduler(client: FluxerClient) {
+export function startScheduler(client: FluxerClient): Stoppable[] {
   const opts = { timezone: config.timezone };
+  const tasks: Stoppable[] = [];
 
   // Manutenção a cada 5 minutos.
-  cron.schedule(
-    '*/5 * * * *',
-    safe('manutenção', async () => {
-      const expired = await expireStaleChallenges();
-      if (expired.length) log.info(`${expired.length} desafio(s) expirado(s)`);
-      await removeExpiredRoles(client);
-      await restoreExpiredNicknames(client);
-      await closeDueWeeklyEvents(client);
-      await cleanupEndedNights(client);
-      if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
-    }),
-    opts,
+  tasks.push(
+    cron.schedule(
+      '*/5 * * * *',
+      safe('manutenção', async () => {
+        const expired = await expireStaleChallenges();
+        if (expired.length) log.info(`${expired.length} desafio(s) expirado(s)`);
+        await removeExpiredRoles(client);
+        await restoreExpiredNicknames(client);
+        await closeDueWeeklyEvents(client);
+        await cleanupEndedNights(client);
+        if (await isSeasonOver()) await announceSeasonEnd(client, await endActiveSeason());
+      }),
+      opts,
+    ),
   );
 
   // Missões diárias: 3 novas à meia-noite (fuso TIMEZONE).
-  cron.schedule(
-    '0 0 * * *',
-    safe('missões diárias', () => announceDailyMissions(client)),
-    opts,
+  tasks.push(
+    cron.schedule(
+      '0 0 * * *',
+      safe('missões diárias', () => announceDailyMissions(client)),
+      opts,
+    ),
   );
 
   // A cada minuto: minutos em voz (progresso em tempo real) e salas temporárias vazias.
-  cron.schedule(
-    '* * * * *',
-    safe('voz', async () => {
-      voicePresence.flush();
-      await cleanupEmptyRooms(client);
-      await musicService(client).tick();
-    }),
-    opts,
+  tasks.push(
+    cron.schedule(
+      '* * * * *',
+      safe('voz', async () => {
+        voicePresence.flush();
+        await cleanupEmptyRooms(client);
+        await musicService(client).tick();
+      }),
+      opts,
+    ),
   );
 
   // Hall do Reino a cada 10 minutos.
-  cron.schedule(
-    '*/10 * * * *',
-    safe('hall do reino', () => updateHallOfFame(client)),
-    opts,
+  tasks.push(
+    cron.schedule(
+      '*/10 * * * *',
+      safe('hall do reino', () => updateHallOfFame(client)),
+      opts,
+    ),
   );
 
   if (config.weeklyEvent.enabled) {
-    cron.schedule(
-      config.weeklyEvent.openCron,
-      safe('evento semanal', () => openWeeklyEvent(client)),
-      opts,
+    tasks.push(
+      cron.schedule(
+        config.weeklyEvent.openCron,
+        safe('evento semanal', () => openWeeklyEvent(client)),
+        opts,
+      ),
     );
   }
+  // Promoção automática Escudeiro → Mercenário (só faz algo se estiver ativada no !progressao).
+  tasks.push(
+    cron.schedule(
+      '*/15 * * * *',
+      safe('progressão', async () => {
+        const run = await runPromotions(client);
+        if (run.promoted.length) log.info(`${run.promoted.length} membro(s) promovido(s)`);
+      }),
+      opts,
+    ),
+  );
   log.info(`ativo (fuso ${config.timezone})`);
+  return tasks;
 }

@@ -30,6 +30,8 @@ export async function resetDb() {
     prisma.reactionPrompt.deleteMany(),
     prisma.promotion.deleteMany(),
     prisma.freeGame.deleteMany(),
+    prisma.communityMember.deleteMany(),
+    prisma.auditLog.deleteMany(),
   ]);
 }
 

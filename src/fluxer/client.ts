@@ -13,6 +13,9 @@ export class FluxerClient {
   readonly gateway: Gateway;
   user: User | null = null;
   private ownerId: Snowflake | null = null;
+  private guildName: string | null = null;
+  /** Total de membros: vem no GUILD_CREATE e acompanha entradas e saídas. */
+  memberCount: number | null = null;
   private roles: Role[] | null = null;
   private rolesFetchedAt = 0;
 
@@ -63,18 +66,33 @@ export class FluxerClient {
     if (event === 'GUILD_CREATE') {
       const guild = data as GuildReady;
       if (guild.id !== this.guildId) return;
-      if (guild.properties) this.ownerId = guild.properties.owner_id;
+      if (guild.properties) {
+        this.ownerId = guild.properties.owner_id;
+        this.guildName = guild.properties.name;
+      }
+      if (typeof guild.member_count === 'number') this.memberCount = guild.member_count;
       if (guild.roles) {
         this.roles = guild.roles;
         this.rolesFetchedAt = Date.now();
       }
     } else if (event === 'GUILD_UPDATE') {
-      const guild = data as { id: Snowflake; owner_id: Snowflake };
-      if (guild.id === this.guildId) this.ownerId = guild.owner_id;
+      const guild = data as { id: Snowflake; owner_id: Snowflake; name?: string };
+      if (guild.id === this.guildId) {
+        this.ownerId = guild.owner_id;
+        if (guild.name) this.guildName = guild.name;
+      }
+    } else if (event === 'GUILD_MEMBER_ADD' || event === 'GUILD_MEMBER_REMOVE') {
+      const { guild_id } = data as { guild_id?: Snowflake };
+      if (guild_id === this.guildId && this.memberCount !== null) this.memberCount += event === 'GUILD_MEMBER_ADD' ? 1 : -1;
     } else if (event.startsWith('GUILD_ROLE_')) {
       // Mais simples que aplicar cada mudança: busca de novo quando precisar.
       this.roles = null;
     }
+  }
+
+  /** Esquece o cache de cargos (ex.: depois de criar um cargo, antes do GUILD_ROLE_CREATE chegar). */
+  invalidateRoles() {
+    this.roles = null;
   }
 
   async getRoles(): Promise<Role[]> {
@@ -83,6 +101,16 @@ export class FluxerClient {
       this.rolesFetchedAt = Date.now();
     }
     return this.roles;
+  }
+
+  /** Nome da comunidade (cache do GUILD_CREATE, ou busca na API). */
+  async getGuildName(): Promise<string> {
+    if (!this.guildName) {
+      const guild = await this.rest.getGuild(this.guildId);
+      this.guildName = guild.name;
+      this.ownerId ??= guild.owner_id;
+    }
+    return this.guildName;
   }
 
   async getOwnerId(): Promise<Snowflake> {

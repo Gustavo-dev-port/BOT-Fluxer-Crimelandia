@@ -85,6 +85,20 @@ export const config = {
     pollOptions: envInt('NIGHT_POLL_OPTIONS', 4),
   },
 
+  worker: {
+    /** Porta do GET /health (0 = desligado). */
+    healthPort: envInt('HEALTH_PORT', 3000),
+    /** Endereço do servidor de health check; 0.0.0.0 para o Docker enxergar. */
+    healthHost: env('HEALTH_HOST', '0.0.0.0'),
+    /**
+     * Minutos sem Gateway (ou sem banco) até o worker se encerrar para o Docker/PM2
+     * reiniciá-lo do zero (0 = nunca). A reconexão normal continua antes disso.
+     */
+    watchdogMinutes: envInt('WORKER_WATCHDOG_MINUTES', 10),
+    /** Segundos de tolerância sem Gateway antes do /health responder "unhealthy". */
+    gatewayGraceSeconds: envInt('HEALTH_GATEWAY_GRACE_SECONDS', 120),
+  },
+
   music: {
     enabled: envBool('MUSIC_ENABLED', true),
     /** Caminho do yt-dlp (precisa estar instalado). */
@@ -162,6 +176,7 @@ export const config = {
     freeGames: 'jogos-gratis',
     music: 'musica',
     hall: 'hall-do-reino',
+    welcome: 'boas-vindas',
   },
 
   defaultGames: ['Valorant', 'CS2', 'League of Legends', 'Fortnite', 'Rocket League', 'EA FC', 'Livre'],

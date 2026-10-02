@@ -3,7 +3,8 @@
  * - Console colorido para acompanhar o bot rodando.
  * - logs/combined.log: tudo a partir de LOG_LEVEL, em JSON.
  * - logs/error.log: só erros, em JSON.
- * - logs/missions.log, logs/voice.log, logs/night.log, logs/music.log: só os escopos de cada módulo (SCOPE_FILES).
+ * - logs/missions.log, voice.log, night.log, music.log, onboarding.log, worker.log: só os escopos de cada módulo (SCOPE_FILES).
+ * - LOG_FORMAT=json deixa o console em JSON também (uma linha por evento, bom para Docker/agregadores).
  * Nos testes (VITEST) nada é escrito.
  */
 import winston from 'winston';
@@ -26,6 +27,8 @@ export const SCOPE_FILES: Record<string, string> = {
   voz: 'voice.log',
   'night fluxer': 'night.log',
   música: 'music.log',
+  onboarding: 'onboarding.log',
+  worker: 'worker.log',
 };
 
 /** Deixa passar só as linhas de um escopo. */
@@ -39,7 +42,10 @@ export const logger = winston.createLogger({
     ? []
     : [
         new winston.transports.Console({
-          format: combine(errors({ stack: true }), timestamp({ format: 'HH:mm:ss' }), colorize(), consoleFormat),
+          format:
+            process.env.LOG_FORMAT === 'json'
+              ? combine(errors({ stack: true }), timestamp(), json())
+              : combine(errors({ stack: true }), timestamp({ format: 'HH:mm:ss' }), colorize(), consoleFormat),
         }),
         new winston.transports.File({ filename: `${logDir}/error.log`, level: 'error' }),
         new winston.transports.File({ filename: `${logDir}/combined.log` }),

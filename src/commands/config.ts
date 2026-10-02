@@ -17,6 +17,7 @@ const CHANNEL_OPTIONS: Record<string, { key: ChannelKey; label: string }> = {
   partidas: { key: 'matches', label: 'Partidas' },
   comandos: { key: 'commands', label: 'Comandos' },
   hall: { key: 'hall', label: 'Hall do Reino' },
+  'boas-vindas': { key: 'welcome', label: 'Boas-vindas' },
 };
 
 const ROLE_OPTIONS: Record<string, { key: RoleKey; label: string }> = {

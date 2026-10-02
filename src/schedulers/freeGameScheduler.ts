@@ -1,5 +1,6 @@
 /** Roda o módulo de jogos grátis no intervalo configurado (padrão: a cada 1 hora). */
 import cron from 'node-cron';
+import type { Stoppable } from './types.js';
 import { FluxerFreeGamePublisher } from '../services/notifications/freeGamePublisher.js';
 import { config } from '../config.js';
 import { FreeGameRepository } from '../database/freeGameRepository.js';
@@ -30,12 +31,13 @@ async function runOnce(client: FluxerClient) {
   }
 }
 
-export function startFreeGameScheduler(client: FluxerClient) {
+export function startFreeGameScheduler(client: FluxerClient): Stoppable[] {
   if (!config.freeGames.enabled) {
     log.info('módulo de jogos grátis desativado (FREE_GAMES_ENABLED=false)');
-    return;
+    return [];
   }
-  cron.schedule(config.freeGames.cron, () => void runOnce(client), { timezone: config.timezone });
-  setTimeout(() => void runOnce(client), 20_000);
+  const task = cron.schedule(config.freeGames.cron, () => void runOnce(client), { timezone: config.timezone });
+  const first = setTimeout(() => void runOnce(client), 20_000);
   log.info(`agendado (${config.freeGames.cron}), fontes: ${config.freeGames.sources.join(', ')}`);
+  return [task, { stop: () => clearTimeout(first) }];
 }

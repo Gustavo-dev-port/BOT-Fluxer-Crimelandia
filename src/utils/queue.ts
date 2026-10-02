@@ -21,3 +21,16 @@ export const reactionQueue = serialQueue();
 export const missionQueue = serialQueue();
 /** Entradas e saídas das salas temporárias, na ordem dos eventos de voz. */
 export const roomQueue = serialQueue();
+/** Novos membros (cargo inicial e boas-vindas), um por vez: eventos repetidos não correm em paralelo. */
+export const memberQueue = serialQueue();
+
+/** Espera as filas terminarem o que já começaram (desligamento gracioso), até `timeoutMs`. */
+export async function drainQueues(timeoutMs = 10_000): Promise<boolean> {
+  const queues = [reactionQueue, missionQueue, roomQueue, memberQueue];
+  let timer: NodeJS.Timeout | undefined;
+  const drained = Promise.all(queues.map((q) => q(async () => undefined))).then(() => true);
+  const timeout = new Promise<boolean>((r) => (timer = setTimeout(() => r(false), timeoutMs)));
+  const result = await Promise.race([drained, timeout]);
+  clearTimeout(timer);
+  return result;
+}

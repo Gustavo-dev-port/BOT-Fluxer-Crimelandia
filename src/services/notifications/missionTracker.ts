@@ -10,6 +10,8 @@ import type { ConfirmedMatch } from '../matches.js';
 import { type CompletedMission, ensureDailyMissions, missionLabel, recordProgress, todayKey } from '../missions.js';
 import type { PlayerRef } from '../players.js';
 import type { MissionKind } from '../rules/missions.js';
+import { ACTIVITY_POINTS } from '../rules/onboarding.js';
+import { addActivity } from '../onboarding.js';
 import { voicePresence } from '../voicePresence.js';
 import { sendTo } from '../channels.js';
 import { errorMeta, scoped } from '../../utils/logger.js';
@@ -40,10 +42,24 @@ async function announceCompleted(client: FluxerClient, completed: CompletedMissi
   }
 }
 
-/** Soma progresso e anuncia o que foi concluído. Erros ficam só no log. */
+/** Pontos de atividade da progressão (Escudeiro → Mercenário). Erros ficam só no log. */
+async function recordActivity(guildId: string, player: string | PlayerRef, kind: MissionKind, amount: number) {
+  const id = typeof player === 'string' ? player : player.id;
+  try {
+    await addActivity(guildId, id, ACTIVITY_POINTS[kind] * amount, typeof player === 'string' ? undefined : player.username);
+  } catch (err) {
+    log.error(`falha ao somar atividade (${kind})`, { user: id, ...errorMeta(err) });
+  }
+}
+
+/** Soma progresso (missões e atividade) e anuncia o que foi concluído. Erros ficam só no log. */
 export async function trackMission(client: FluxerClient, player: string | PlayerRef, kind: MissionKind, amount = 1, now = new Date()) {
   try {
-    await announceCompleted(client, await missionQueue(() => recordProgress(player, kind, amount, now)));
+    const completed = await missionQueue(async () => {
+      await recordActivity(client.guildId, player, kind, amount);
+      return recordProgress(player, kind, amount, now);
+    });
+    await announceCompleted(client, completed);
   } catch (err) {
     log.error(`falha ao registrar progresso (${kind})`, { user: typeof player === 'string' ? player : player.id, ...errorMeta(err) });
   }

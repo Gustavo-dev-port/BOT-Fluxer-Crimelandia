@@ -32,6 +32,10 @@ export class FluxerApiError extends Error {
 
 const MAX_RETRIES = 3;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Espera crescente (0,5 s, 1 s, 2 s…) para falhas de rede e 502/504. */
+const backoff = (attempt: number) => Math.min(8_000, 500 * 2 ** attempt) * (0.75 + Math.random() * 0.5);
+/** Falha temporária do servidor ou do caminho até ele. */
+const TRANSIENT_STATUS = new Set([502, 504]);
 
 /** Lê `/.well-known/fluxer` da instância (não exige autenticação). */
 export async function discoverInstance(instanceUrl: string): Promise<InstanceEndpoints> {
@@ -72,11 +76,21 @@ export class RestClient {
     if (opts.reason) headers['X-Audit-Log-Reason'] = opts.reason.replace(/[^\x20-\xff]/g, '').trim();
 
     for (let attempt = 0; ; attempt++) {
-      const res = await fetch(url, {
-        method,
-        headers,
-        body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-      });
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method,
+          headers,
+          body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+        });
+      } catch (err) {
+        // Rede caiu (DNS, conexão recusada/resetada): tenta de novo com espera crescente.
+        if (attempt < MAX_RETRIES) {
+          await sleep(backoff(attempt));
+          continue;
+        }
+        throw err;
+      }
 
       if (res.status === 204) return undefined as T;
       const text = await res.text();
@@ -89,6 +103,10 @@ export class RestClient {
         await sleep(Math.max(0.05, seconds) * 1000);
         continue;
       }
+      if (TRANSIENT_STATUS.has(res.status) && attempt < MAX_RETRIES) {
+        await sleep(backoff(attempt));
+        continue;
+      }
       throw new FluxerApiError(res.status, data?.code ?? 'UNKNOWN', data?.message ?? res.statusText, method, path);
     }
   }
@@ -99,6 +117,10 @@ export class RestClient {
   }
   getUser(userId: Snowflake) {
     return this.request<User>('GET', `/users/${userId}`);
+  }
+  /** Abre (ou reabre) a DM com um usuário (docs: POST /users/@me/channels com recipient_id). */
+  createDM(recipientId: Snowflake) {
+    return this.request<Channel>('POST', '/users/@me/channels', { body: { recipient_id: recipientId } });
   }
 
   // ─── Mensagens (docs: /http-api/messages) ─────────────────────────────────
