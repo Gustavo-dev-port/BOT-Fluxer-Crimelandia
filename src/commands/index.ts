@@ -15,6 +15,7 @@ import { MUSIC_COMMANDS } from './musica.js';
 import { gratis } from './gratis.js';
 import { promocoes } from './promocoes.js';
 import { time } from './time.js';
+import { auditoria, boasvindas, progressao } from './onboarding.js';
 import { type Category, type Command, usageOf } from './types.js';
 
 const ajuda: Command = {
@@ -78,6 +79,7 @@ export const commands: Command[] = [
   rival,
   rivalidades,
   hall,
+  progressao,
   // Times e campeonatos
   time,
   campeonato,
@@ -101,6 +103,8 @@ export const commands: Command[] = [
   jogo,
   setup,
   configCommand,
+  boasvindas,
+  auditoria,
   admin,
 ];
 

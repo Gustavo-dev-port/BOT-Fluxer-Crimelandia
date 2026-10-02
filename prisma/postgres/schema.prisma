@@ -253,7 +253,7 @@ model ReactionPrompt {
 
 /// Configuração por servidor (Fluxer guild). Canais e cargos usados pelo bot.
 model GuildSettings {
-  guildId             String   @id
+  guildId             String  @id
   commandsChannelId   String?
   scoreboardChannelId String?
   matchesChannelId    String?
@@ -264,9 +264,66 @@ model GuildSettings {
   hallChannelId       String?
   promoRoleId         String?
   championRoleId      String?
-  language            String   @default("pt-BR")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  language            String  @default("pt-BR")
+
+  // Boas-vindas e cargo inicial (!boasvindas)
+  welcomeEnabled      Boolean @default(true)
+  welcomeChannelId    String?
+  /// null = mensagem padrão (rules/onboarding.ts)
+  welcomeMessage      String?
+  welcomeDMEnabled    Boolean @default(false)
+  /// Cargo inicial (Escudeiro). null ou excluído = cargo "Escudeiro" do sistema.
+  defaultMemberRoleId String?
+
+  // Progressão Escudeiro → Mercenário (!progressao)
+  automaticPromotionEnabled Boolean @default(false)
+  minimumDays               Int     @default(7)
+  minimumActivityPoints     Int     @default(50)
+  /// Cargo da promoção (Mercenário). null ou excluído = cargo "Mercenário" do sistema.
+  promotionRoleId           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Membro da comunidade visto pelo bot: entrada (boas-vindas uma vez só), atividade e promoção.
+model CommunityMember {
+  id                 Int       @id @default(autoincrement())
+  guildId            String
+  userId             String
+  username           String?
+  /// joined_at da entrada atual no Fluxer (null = ainda não visto num GUILD_MEMBER_ADD)
+  joinedAt           DateTime?
+  /// Boas-vindas já enviadas (nunca repete, nem se sair e voltar)
+  welcomedAt         DateTime?
+  welcomeMessageId   String?
+  initialRoleId      String?
+  initialRoleAt      DateTime?
+  activityPoints     Int       @default(0)
+  promotedAt         DateTime?
+  promotionCheckedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([guildId, userId])
+  @@index([guildId, promotedAt, activityPoints])
+}
+
+/// Histórico das ações automáticas e administrativas do bot (cargos, boas-vindas, configurações).
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  guildId   String
+  /// ex.: member_join, role_assigned, welcome_sent, member_promoted, config_changed
+  action    String
+  userId    String?
+  /// Quem fez (admin); null = automático
+  actorId   String?
+  roleId    String?
+  /// JSON com detalhes
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([guildId, createdAt])
 }
 
 /// Promoção de jogo vista em alguma loja. O ID evita repostar a mesma oferta.

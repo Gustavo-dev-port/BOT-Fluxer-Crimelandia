@@ -104,6 +104,8 @@ export interface GuildReady {
   properties?: Guild;
   roles?: Role[];
   channels?: Channel[];
+  /** Total de membros (docs: guild ready object). */
+  member_count?: number;
   /** Quem está em voz nos canais que o bot vê (docs: guild ready object). */
   voice_states?: VoiceState[];
 }
@@ -118,6 +120,11 @@ export interface VoiceState {
   member?: GuildMember | null;
   self_mute?: boolean;
   self_deaf?: boolean;
+}
+
+/** GUILD_MEMBER_ADD: o membro completo com `guild_id` (docs: /gateway/events#guild-member-add). */
+export interface GuildMemberAddEvent extends GuildMember {
+  guild_id: Snowflake;
 }
 
 /** VOICE_SERVER_UPDATE: credencial LiveKit da conexão de voz desta sessão. */

@@ -39,6 +39,15 @@ export class MockFluxer {
   rateLimitNext = 0;
   roles: any[] = [{ id: GUILD_ID, name: '@everyone', color: 0, position: 0, permissions: '0', hoist: false, mentionable: false }];
   memberRoles = new Map<string, string[]>();
+  /** Total de membros anunciado no GUILD_CREATE. */
+  memberCount = 42;
+  /** Recusa (404 UNKNOWN_ROLE) dar um cargo que não está em `roles`, como o Fluxer de verdade. */
+  strictRoles = false;
+  /** joined_at devolvido no GET do membro (padrão: agora). */
+  memberJoinedAt = new Map<string, string>();
+  /** Usuários que não aceitam DM (Create message responde 400). */
+  dmBlocked = new Set<string>();
+  private dmChannels = new Map<string, string>();
   sessionId = 'sessao-1';
   /** Credencial de voz devolvida no op 4; null = o Fluxer recusa (não responde). */
   voiceGrant: ((channelId: string, connectionId: string) => { token: string; endpoint: string }) | null = () => ({
@@ -97,6 +106,7 @@ export class MockFluxer {
           roles: this.roles,
           channels: Object.entries(CHANNELS).map(([name, id]) => ({ id, name, type: 0, guild_id: GUILD_ID })),
           members: [],
+          member_count: this.memberCount,
         });
       }
       if (frame.op === 4) {
@@ -175,6 +185,15 @@ export class MockFluxer {
     }
 
     let m: RegExpExecArray | null;
+    if (req.method === 'POST' && path === '/users/@me/channels') {
+      const userId = String(body.recipient_id);
+      const id = this.dmChannels.get(userId) ?? `dm-${userId}`;
+      this.dmChannels.set(userId, id);
+      return json(200, { id, type: 1, recipients: [{ id: userId, username: `u${userId}` }] });
+    }
+    if (req.method === 'POST' && (m = /^\/channels\/(dm-[^/]+)\/messages$/.exec(path)) && this.dmBlocked.has(m[1].slice(3))) {
+      return json(400, { code: 'CANNOT_SEND_MESSAGES_TO_USER', message: 'blocked' });
+    }
     if (req.method === 'POST' && (m = /^\/channels\/([^/]+)\/messages$/.exec(path))) {
       call.response = this.message(m[1], String(this.nextMessageId++), body);
       return json(200, call.response);
@@ -209,6 +228,17 @@ export class MockFluxer {
         joined_at: new Date().toISOString(),
       });
     }
+    if (
+      (req.method === 'PUT' || req.method === 'DELETE') &&
+      (m = new RegExp(`^/guilds/${GUILD_ID}/members/([^/]+)/roles/([^/]+)$`).exec(path))
+    ) {
+      if (this.strictRoles && !this.roles.some((r) => r.id === m![2])) return json(404, { code: 'UNKNOWN_ROLE', message: 'Unknown role' });
+      const roles = new Set(this.memberRoles.get(m[1]) ?? []);
+      if (req.method === 'PUT') roles.add(m[2]);
+      else roles.delete(m[2]);
+      this.memberRoles.set(m[1], [...roles]);
+      return json(204);
+    }
     if (req.method === 'PUT' || req.method === 'DELETE') return json(204);
     if (path === `/guilds/${GUILD_ID}`) return json(200, { id: GUILD_ID, name: 'Crimelândia', owner_id: OWNER_ID });
     if (path === `/guilds/${GUILD_ID}/roles`) return json(200, this.roles);
@@ -224,7 +254,7 @@ export class MockFluxer {
         user: { id, username: `u${id}` },
         roles: this.memberRoles.get(id) ?? [],
         nick: null,
-        joined_at: new Date().toISOString(),
+        joined_at: this.memberJoinedAt.get(id) ?? new Date().toISOString(),
       });
     }
     if ((m = /^\/users\/([^/]+)$/.exec(path)))

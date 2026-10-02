@@ -1,5 +1,6 @@
 /** Roda o módulo de promoções no intervalo configurado (padrão: a cada 30 min). */
 import cron from 'node-cron';
+import type { Stoppable } from './types.js';
 import { FluxerPromotionPublisher } from '../services/notifications/promotionPublisher.js';
 import { config } from '../config.js';
 import { PromotionRepository } from '../database/promotionRepository.js';
@@ -30,13 +31,14 @@ async function runOnce(client: FluxerClient) {
   }
 }
 
-export function startPromotionScheduler(client: FluxerClient) {
+export function startPromotionScheduler(client: FluxerClient): Stoppable[] {
   if (!config.promotions.enabled) {
     log.info('módulo de promoções desativado (PROMO_ENABLED=false)');
-    return;
+    return [];
   }
-  cron.schedule(config.promotions.cron, () => void runOnce(client), { timezone: config.timezone });
+  const task = cron.schedule(config.promotions.cron, () => void runOnce(client), { timezone: config.timezone });
   // Primeira rodada logo após iniciar, para não esperar 30 minutos.
-  setTimeout(() => void runOnce(client), 15_000);
+  const first = setTimeout(() => void runOnce(client), 15_000);
   log.info(`agendado (${config.promotions.cron}), lojas: ${config.promotions.sources.join(', ')}`);
+  return [task, { stop: () => clearTimeout(first) }];
 }

@@ -20,6 +20,9 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 - **Hall do Reino** — campeão, MVP da semana, mais ativo, maior sequência, mais vitórias e mais FluxCoins, fixado em `#🏰┃hall-do-reino` e atualizado a cada 10 min
 - **Missões diárias** — 3 missões novas à meia-noite (vencer partidas, tempo em voz, entrar em salas, mensagens, reações), com recompensa de 20 a 100 FluxCoins; `!missoes` e `!coletar`
 - **Perfil medieval** — classe, liga com barra de progresso, avatar e títulos de honra (👑 ⚔️ 🧙 🐺 🔥)
+- **Onboarding** — quem entra recebe o cargo 🌱 Escudeiro e uma mensagem de boas-vindas (canal e, se quiser, DM), configuráveis com `!boasvindas`; nunca um cargo administrativo
+- **Jornada Escudeiro → Mercenário** — promoção automática opcional por dias na comunidade + pontos de atividade (`!progressao`), com anúncio e histórico (`!auditoria`)
+- **Worker 24/7** — processo independente com reconexão automática, health check (`GET /health`), watchdog e desligamento gracioso
 
 > **Comandos de texto e reações.** O Fluxer não tem slash commands nem botões. Os comandos usam um prefixo (`!` por padrão) e as confirmações usam reações: ✅ aceita/confirma, ❌ recusa, ⚠️ contesta.
 
@@ -155,6 +158,7 @@ Cada postagem tem imagem, nome, descrição, plataforma, data limite e o link **
 | `#💸┃promocoes`     | Promoções de jogos com 40%+ de desconto (a cada 30 min)                    |
 | `#🏰┃hall-do-reino` | Hall do Reino — mensagem fixada, atualizada a cada 10 min (só leitura)     |
 | `#🎵┃musica`        | Player de música fixado: o que está tocando, progresso e fila (só leitura) |
+| `#👋┃boas-vindas`   | Boas-vindas dos novos membros e anúncios de promoção (só leitura)          |
 
 Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um com `!config`, ex.: `!config eventos #📜┃eventos`.
 
@@ -185,6 +189,7 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 | `!rival [@jogador] [@outro]`      | Maior rivalidade ou confronto direto, com taxa de vitória e histórico dos últimos 5 duelos                                                                                    |
 | `!rivalidades`                    | Top 10 rivalidades da comunidade (pares com 2+ duelos 1v1)                                                                                                                    |
 | `!hall`                           | Hall do Reino                                                                                                                                                                 |
+| `!progressao`                     | Sua jornada Escudeiro → Mercenário: dias, pontos de atividade e requisitos                                                                                                    |
 
 ### Times e eventos
 
@@ -221,20 +226,26 @@ Os canais ficam salvos por servidor (tabela `GuildSettings`). Troque qualquer um
 
 Admin = quem tem **Gerenciar Servidor** (ou Administrador, ou é o dono).
 
-| Comando                                                                                   | Função                                        |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `!setup`                                                                                  | Cria/configura os canais e o cargo de campeão |
-| `!config`                                                                                 | Mostra a configuração do servidor             |
-| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos\|hall> #canal` | Define um canal                               |
-| `!config <promo-role\|campeao-role> @cargo`                                               | Define um cargo                               |
-| `!config idioma pt-BR` · `!config <opção> limpar`                                         | Idioma / remove um valor                      |
-| `!temporada [encerrar]`                                                                   | Informações / encerra a temporada agora       |
-| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                                    | Jogos disponíveis para disputas               |
-| `!admin resultado #partida @vencedor`                                                     | Resolve disputas                              |
-| `!admin cancelar #partida`                                                                | Cancela uma partida não confirmada            |
-| `!admin moedas @jogador <quantidade> [motivo]`                                            | Ajusta FluxCoins                              |
-| `!admin placar`                                                                           | Recria a mensagem do placar                   |
-| `!admin evento-semanal`                                                                   | Abre o evento semanal agora                   |
+| Comando                                                                                                | Função                                      |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `!setup`                                                                                               | Cria/configura canais e cargos              |
+| `!config`                                                                                              | Mostra a configuração do servidor           |
+| `!config <promo\|jogos-gratis\|eventos\|musica\|placar\|partidas\|comandos\|hall\|boas-vindas> #canal` | Define um canal                             |
+| `!config <promo-role\|campeao-role> @cargo`                                                            | Define um cargo                             |
+| `!config idioma pt-BR` · `!config <opção> limpar`                                                      | Idioma / remove um valor                    |
+| `!temporada [encerrar]`                                                                                | Informações / encerra a temporada agora     |
+| `!jogo listar` · `adicionar <nome>` · `remover <nome>`                                                 | Jogos disponíveis para disputas             |
+| `!admin resultado #partida @vencedor`                                                                  | Resolve disputas                            |
+| `!admin cancelar #partida`                                                                             | Cancela uma partida não confirmada          |
+| `!admin moedas @jogador <quantidade> [motivo]`                                                         | Ajusta FluxCoins                            |
+| `!admin placar`                                                                                        | Recria a mensagem do placar                 |
+| `!admin evento-semanal`                                                                                | Abre o evento semanal agora                 |
+| `!boasvindas` · `ativar` · `desativar` · `canal #canal` · `dm ativar\|desativar`                       | Boas-vindas dos novos membros               |
+| `!boasvindas mensagem <texto>` · `mensagem padrao` · `preview`                                         | Edita / restaura / mostra a mensagem        |
+| `!boasvindas cargo @cargo` · `cargo padrao`                                                            | Cargo inicial (cargos administrativos: não) |
+| `!progressao ativar\|desativar` · `dias <n>` · `atividade <n>` · `cargo @cargo`                        | Promoção automática Escudeiro → Mercenário  |
+| `!progressao verificar`                                                                                | Roda a promoção agora                       |
+| `!auditoria [n]`                                                                                       | Histórico das ações automáticas do bot      |
 
 ## Como funciona um duelo
 
@@ -308,6 +319,10 @@ Todas estão comentadas no `.env.example`. As principais:
 | `DATABASE_URL`                                        | `file:./fluxer.db`   | SQLite no desenvolvimento; o compose monta a do PostgreSQL               |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `fluxer`             | PostgreSQL do `docker compose`                                           |
 | `LOG_LEVEL`                                           | `info`               | Nível dos logs (`logs/combined.log`, `logs/error.log`)                   |
+| `LOG_FORMAT`                                          | `text`               | Console em texto ou `json` (logs estruturados)                           |
+| `HEALTH_PORT` / `HEALTH_HOST_PORT`                    | 3000 / 3000          | Porta do `GET /health` (0 = desligado) / porta publicada na VPS          |
+| `HEALTH_GATEWAY_GRACE_SECONDS`                        | 120                  | Tolerância sem Gateway antes do `/health` ficar "unhealthy"              |
+| `WORKER_WATCHDOG_MINUTES`                             | 10                   | Sem Gateway/banco por mais que isso: o worker reinicia (0 = nunca)       |
 | `TIMEZONE`                                            | `America/Sao_Paulo`  | Fuso de temporadas e agendamentos                                        |
 | `RANKING_MODE`                                        | `pontos`             | `pontos` ou `elo`                                                        |
 | `SEASON_MODE` / `SEASON_DAYS` / `SEASON_CARRY_OVER`   | `monthly` / 30 / 0   | Temporadas                                                               |
@@ -328,6 +343,9 @@ Todas estão comentadas no `.env.example`. As principais:
 2. `docker compose up -d --build`. O bot aplica as migrações do PostgreSQL sozinho.
 3. Atualizar: `git pull && docker compose up -d --build`.
 4. Logs: `docker compose logs -f bot` ou os arquivos no volume `bot-logs`.
+5. Saúde: `curl http://127.0.0.1:3000/health` (e `docker compose ps` mostra `healthy`).
+
+O serviço `bot` é o **worker**: fica ligado 24/7 sozinho, sem depender de página aberta. O passo a passo completo (VPS, atualização sem perder dados, logs, reiniciar só o worker) está em [docs/WORKER-24-7.md](docs/WORKER-24-7.md).
 
 ## Música (LiveKit)
 

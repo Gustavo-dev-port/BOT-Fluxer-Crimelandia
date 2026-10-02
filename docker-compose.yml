@@ -1,6 +1,14 @@
-# Produção: bot + PostgreSQL.
-# O módulo de música (Lavalink) não entra: o Lavalink só fala com a voz do Discord,
-# e o Fluxer usa LiveKit. Veja a seção "Música" do README.
+# Produção 24/7: worker do bot + PostgreSQL.
+#
+# O que NÃO entra aqui, de propósito:
+# - fluxer-app: o aplicativo Fluxer (usuários, comunidades, chats, cargos) é a própria
+#   plataforma (fluxer.app ou a sua instância, em FLUXER_INSTANCE); o bot só se conecta a ele.
+# - livekit: a voz roda no LiveKit do próprio Fluxer; o Fluxer entrega o endereço e o
+#   token em cada VOICE_SERVER_UPDATE. Um LiveKit aqui não seria usado pelo Fluxer.
+#
+# O serviço continua se chamando "bot" (é o worker): renomear deixaria o container antigo
+# rodando em paralelo em quem já usa este compose, com o bot respondendo em dobro.
+# Segredos ficam só no .env (env_file); nada de valor real neste arquivo.
 services:
   bot:
     build: .
@@ -11,8 +19,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # O HEALTHCHECK (GET /health) vem do Dockerfile. Aqui o /health fica acessível só na
+    # própria VPS: curl http://127.0.0.1:3000/health
+    ports:
+      - '127.0.0.1:${HEALTH_HOST_PORT:-3000}:3000'
+    # Tempo para terminar o que está em andamento antes do SIGKILL (docker stop / deploy).
+    stop_grace_period: 30s
     volumes:
       - bot-logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
 
   postgres:
     image: postgres:16-alpine
@@ -28,6 +47,11 @@ services:
       retries: 10
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
 
 volumes:
   postgres-data:

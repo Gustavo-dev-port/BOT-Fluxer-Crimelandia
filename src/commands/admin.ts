@@ -15,6 +15,7 @@ import { addGame, listGames, removeGame } from '../services/games.js';
 import { adminSetResult, cancelDuel } from '../services/matches.js';
 import { ensurePlayer } from '../services/players.js';
 import { endActiveSeason, getActiveSeason } from '../services/seasons.js';
+import { resolveAutomaticRole } from '../services/notifications/onboarding.js';
 import { type Command, refOf } from './types.js';
 
 /** Canais que o !setup cria. Promoções e jogos grátis entram quando esses módulos existirem. */
@@ -27,6 +28,7 @@ const SETUP_CHANNELS: Partial<Record<ChannelKey, string>> = {
   freeGames: 'Jogos grátis da Epic, Steam e GOG (atualizado a cada hora)',
   hall: 'Hall do Reino: os destaques da comunidade (atualizado a cada 10 min)',
   music: 'Player de música: o que está tocando, fixado e atualizado (!tocar)',
+  welcome: 'Chegada de novos aventureiros ao Reino',
 };
 
 /** Nomes com emoji usados ao criar; se o Fluxer recusar, cria com o nome simples. */
@@ -36,6 +38,7 @@ const DECORATED_NAMES: Partial<Record<ChannelKey, string>> = {
   events: '📜┃eventos',
   hall: '🏰┃hall-do-reino',
   music: '🎵┃musica',
+  welcome: '👋┃boas-vindas',
 };
 
 export const CHAMPION_ROLE_NAME = '🏆 Campeão do Reino';
@@ -45,7 +48,7 @@ export const setup: Command = {
   category: 'Administração',
   usage: '',
   description:
-    'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes, #jogos-gratis, #hall-do-reino, #musica) e o cargo de campeão',
+    'Cria/configura os canais (#comandos, #placar, #partidas, #eventos, #promocoes, #jogos-gratis, #hall-do-reino, #musica, #boas-vindas) e os cargos de campeão, Escudeiro e Mercenário',
   adminOnly: true,
   async execute(ctx) {
     const { client } = ctx;
@@ -66,9 +69,9 @@ export const setup: Command = {
               name: channelName,
               type: ChannelType.GUILD_TEXT,
               topic,
-              // #placar, #hall-do-reino e #musica são só leitura para os membros (o @everyone tem o mesmo ID do servidor).
+              // #placar, #hall-do-reino, #musica e #boas-vindas são só leitura para os membros (o @everyone tem o mesmo ID do servidor).
               permission_overwrites:
-                key === 'scoreboard' || key === 'hall' || key === 'music'
+                key === 'scoreboard' || key === 'hall' || key === 'music' || key === 'welcome'
                   ? [
                       { id: client.guildId, type: 0, deny: Permission.SEND_MESSAGES.toString() },
                       { id: botId, type: 1, allow: (Permission.SEND_MESSAGES | Permission.PIN_MESSAGES).toString() },
@@ -100,6 +103,17 @@ export const setup: Command = {
       } else {
         lines.push('⚠️ não consegui criar o cargo de campeão (o bot precisa de **Gerenciar Cargos**)');
       }
+    }
+
+    // Cargos da jornada: inicial (Escudeiro) e promoção (Mercenário), sem nenhuma permissão.
+    const settings = await guildSettings.get(client.guildId);
+    for (const [kind, label] of [
+      ['start', 'cargo inicial'],
+      ['promotion', 'cargo de promoção'],
+    ] as const) {
+      const resolved = await resolveAutomaticRole(client, kind, settings, true).catch(() => null);
+      if (resolved) lines.push(`${resolved.source === 'created' ? '✨ criado o' : '✅'} ${label}: <@&${resolved.role.id}>`);
+      else lines.push(`⚠️ não consegui criar o ${label} (o bot precisa de **Gerenciar Cargos**)`);
     }
 
     await updateScoreboard(client);

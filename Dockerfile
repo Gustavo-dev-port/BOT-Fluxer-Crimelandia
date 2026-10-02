@@ -22,11 +22,17 @@ RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/
 ADD --chmod=755 https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux /usr/local/bin/yt-dlp
 ENV NODE_ENV=production \
     TZ=America/Sao_Paulo \
-    LOG_DIR=/app/logs
+    LOG_DIR=/app/logs \
+    HEALTH_PORT=3000
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY package.json prisma.postgres.config.ts ./
 VOLUME /app/logs
-# Aplica as migrações do PostgreSQL e sobe o bot.
-CMD ["sh", "-c", "npx prisma migrate deploy --config prisma.postgres.config.ts && node dist/index.js"]
+EXPOSE 3000
+# GET /health: 200 com banco e Gateway do Fluxer ok. start-period cobre migrações e conexão.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.HEALTH_PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+# Aplica as migrações do PostgreSQL e sobe o worker. O "exec" deixa o Node como processo
+# principal, então ele recebe o SIGTERM do "docker stop" e desliga de forma limpa.
+CMD ["sh", "-c", "npx prisma migrate deploy --config prisma.postgres.config.ts && exec node dist/index.js"]

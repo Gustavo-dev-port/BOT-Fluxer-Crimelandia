@@ -14,6 +14,7 @@ export const CHANNEL_FIELDS = {
   freeGames: 'freeGamesChannelId',
   music: 'musicChannelId',
   hall: 'hallChannelId',
+  welcome: 'welcomeChannelId',
 } as const satisfies Record<string, keyof GuildSettings>;
 
 export type ChannelKey = keyof typeof CHANNEL_FIELDS;

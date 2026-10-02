@@ -10,6 +10,7 @@ src/
 │
 ├── events/          Eventos do Gateway do Fluxer
 │   ├── messageCreate.ts MESSAGE_CREATE → acha o comando, checa permissão/canal, executa, trata erros
+│   │                    (GUILD_MEMBER_ADD vai direto para services/notifications/onboarding.ts)
 │   ├── reactions.ts     MESSAGE_REACTION_ADD/REMOVE → ✅/❌/⚠️ nos prompts, ✅ nas inscrições, 1️⃣–5️⃣ na votação do Night Fluxer
 │   └── voiceState.ts    GUILD_CREATE / VOICE_STATE_UPDATE / PASSIVE_UPDATES → presença em voz
 │
@@ -22,6 +23,7 @@ src/
 │   ├── missions.ts      missões diárias: geração, progresso (fila por jogador) e coleta
 │   ├── night.ts         Night Fluxer: evento, votos, fechamento com sorteio de equipes, encerramento
 │   ├── voicePresence.ts quem está em qual sala de voz; minutos e entradas (missões) e ocupação (salas temporárias)
+│   ├── onboarding.ts    novos membros (idempotente por comunidade+usuário), pontos de atividade, promoção, auditoria
 │   ├── hallOfFame.ts    Hall do Reino: campeão, MVP da semana, mais ativo, maior sequência, mais vitórias, mais FluxCoins
 │   ├── music/           música na voz do Fluxer (LiveKit):
 │   │                    voice.ts (op 4 → VOICE_SERVER_UPDATE → sala LiveKit, faixa de áudio), player.ts (quadros de 10 ms,
@@ -33,7 +35,8 @@ src/
 │   ├── notifications/   o que fala com o Fluxer: announcer (#partidas, #placar, fim de temporada, prompts de reação),
 │   │                    duelActions, tournamentAnnouncer, promotionPublisher, freeGamePublisher, hallAnnouncer,
 │   │                    missionTracker (eventos → missões, aviso de conclusão), voiceRooms (!grupo e limpeza),
-│   │                    pinnedMessage (mensagem fixada sempre atualizada: #placar e #hall-do-reino)
+│   │                    pinnedMessage (mensagem fixada sempre atualizada: #placar e #hall-do-reino),
+│   │                    onboarding (GUILD_MEMBER_ADD → cargo inicial seguro → boas-vindas; promoção Escudeiro → Mercenário)
 │   └── channels.ts      canal configurado (GuildSettings) ou encontrado pelo nome
 │
 ├── database/        Acesso ao banco (Prisma)
@@ -55,8 +58,13 @@ src/
 │   ├── permissions.ts   bits de permissão (BigInt) e cálculo "Permission computation"
 │   └── types.ts         tipos dos objetos da API
 │
+├── worker/          O processo 24/7
+│   ├── worker.ts        startWorker(): conexão com retry, eventos, agendadores, watchdog e desligamento gracioso
+│   ├── health.ts        GET /health (banco, worker, Gateway) para o Docker
+│   └── status.ts        estado do worker (conectado, desde quando caiu, reconexões)
+│
 ├── config.ts        Variáveis de ambiente e constantes
-└── index.ts         Inicialização: conecta, liga eventos e agendadores, tratamento global de erros
+└── index.ts         Ponto de entrada: sobe o worker, sinais (SIGTERM/SIGINT) e erros globais
 ```
 
 ## Princípios
@@ -77,6 +85,7 @@ src/
 - **Erros de regra são `UserError`.** `events/messageCreate.ts` responde a mensagem ao usuário. Outros erros vão para o log (Winston) e o usuário recebe uma mensagem genérica. `index.ts` também registra `unhandledRejection` e `uncaughtException`.
 - **Rajadas de eventos são enfileiradas.** No SQLite, muitas escritas simultâneas (ex.: todos reagindo ao Night Fluxer) estouram o tempo de espera do banco. Reações, progresso de missões e entradas/saídas das salas temporárias passam por filas próprias (`utils/queue.ts`), uma tarefa por vez. São filas separadas para uma não esperar a outra (uma reação ✅ que confirma partida gera progresso de missão).
 - **Operações que mexem em várias tabelas usam transação** (`transaction()` em `database/client.ts`). Confirmar uma partida atualiza estatísticas, moedas, conquistas e a chave de uma vez.
+- **Ações automáticas são idempotentes e seguras.** Um evento repetido do Gateway não gera outra entrada, cargo ou mensagem: as escritas são condicionais no banco (`CommunityMember` único por comunidade+usuário; boas-vindas e promoção "reservadas" com `updateMany ... where null`). Cargos automáticos nunca têm permissão de administração ou moderação (`rules/onboarding.ts`).
 - **Fontes externas são lidas de forma defensiva.** Um item com formato inesperado é descartado, e uma loja com erro não derruba as outras.
 
 ## Modelo de dados
@@ -97,6 +106,8 @@ src/
 | `VoiceRoom`                                           | Salas de voz temporárias do `!grupo` (líder, limite, privacidade, hash da senha)               |
 | `MusicQueue`, `MusicHistory`                          | Fila de músicas salva (volta depois de reiniciar) e músicas tocadas                            |
 | `ReactionPrompt`                                      | Mensagens que esperam reação (substitutas dos botões)                                          |
+| `CommunityMember`                                     | Membro por comunidade: entrada, boas-vindas (uma vez), cargo inicial, atividade e promoção     |
+| `AuditLog`                                            | Histórico das ações automáticas e de configuração (`!auditoria`)                               |
 | `TempRole`, `TempNickname`                            | Itens temporários da loja (cargos, cor, apelido especial)                                      |
 | `Game`, `PlayerTitle`, `PlayerAchievement`, `Setting` | Jogos disponíveis, títulos comprados, conquistas, valores avulsos (ex.: mensagem do placar)    |
 
