@@ -11,7 +11,7 @@ import { FluxerClient } from '../src/fluxer/client.js';
 import { Permission } from '../src/fluxer/permissions.js';
 import type { GuildMemberAddEvent, MessageCreateEvent, Role } from '../src/fluxer/types.js';
 import { trackMission } from '../src/services/notifications/missionTracker.js';
-import { onMemberAdd, runPromotions } from '../src/services/notifications/onboarding.js';
+import { catchUpMissedJoins, onMemberAdd, runPromotions } from '../src/services/notifications/onboarding.js';
 import { addActivity, getCommunityMember } from '../src/services/onboarding.js';
 import {
   DEFAULT_WELCOME_MESSAGE,
@@ -100,6 +100,7 @@ beforeEach(async () => {
   mock.roles = [EVERYONE, BOT_ROLE];
   mock.memberRoles = new Map([[BOT_ID, [BOT_ROLE.id]]]);
   mock.memberJoinedAt.clear();
+  mock.guildMembers.clear();
   mock.dmBlocked.clear();
   mock.calls = [];
   // O cache de cargos do cliente segue o servidor falso.
@@ -318,6 +319,64 @@ describe('entrada de membro', () => {
     } finally {
       client.getRoles = getRoles;
     }
+  });
+});
+
+describe('entradas perdidas (bot fora do ar)', () => {
+  function joined(id: string, hoursAgo: number, roles: string[] = [], bot = false) {
+    mock.guildMembers.set(id, { id, username: `user${id}`, bot });
+    mock.memberJoinedAt.set(id, new Date(Date.now() - hoursAgo * 3_600_000).toISOString());
+    if (roles.length) mock.memberRoles.set(id, roles);
+  }
+
+  it('dá o cargo a quem entrou sem evento; boas-vindas só para quem entrou nas últimas 24 h', async () => {
+    mock.roles.push(role('8200', 'Veterano', 5));
+    joined('901', 2); // entrou há 2 h, sem cargo → cargo + boas-vindas
+    joined('902', 72); // há 3 dias → só o cargo
+    joined('903', 24 * 30); // há 30 dias → não mexe (membro antigo)
+    joined('904', 1, ['8200']); // já tem cargo → não mexe
+    joined('905', 1, [], true); // bot → não mexe
+    joined('907', -0.01); // relógio do Fluxer um pouco adiantado → conta como agora
+
+    const run = await catchUpMissedJoins(client);
+    expect(run.checked).toBe(6);
+    expect(run.onboarded.sort()).toEqual(['901', '902', '907']);
+    expect(mock.memberRoles.get('901')).toHaveLength(1);
+    expect(mock.memberRoles.get('902')).toHaveLength(1);
+    expect(mock.memberRoles.get('903')).toBeUndefined();
+    expect(mock.memberRoles.get('904')).toEqual(['8200']);
+    expect(
+      welcomes()
+        .map((c) => c.body.allowed_mentions.users[0])
+        .sort(),
+    ).toEqual(['901', '907']);
+    const join = await prisma.auditLog.findFirst({ where: { userId: '902', action: 'member_join' } });
+    expect(JSON.parse(join!.details!)).toMatchObject({ catchUp: true });
+
+    // De novo (outro READY): nada muda.
+    mock.calls = [];
+    expect((await catchUpMissedJoins(client)).onboarded).toEqual([]);
+    expect(mock.calls.filter((c) => c.method !== 'GET')).toHaveLength(0);
+  });
+
+  it('quem já foi registrado mas ficou sem cargo (o Fluxer recusou) recebe o cargo, sem outra mensagem', async () => {
+    joined('906', 1);
+    await onMemberAdd(client, memberAdd('906', { joinedAt: mock.memberJoinedAt.get('906') }));
+    mock.memberRoles.delete('906'); // o cargo não ficou
+    mock.calls = [];
+    const run = await catchUpMissedJoins(client);
+    expect(run.onboarded).toEqual(['906']);
+    expect(mock.memberRoles.get('906')).toHaveLength(1);
+    expect(welcomes()).toHaveLength(0);
+  });
+
+  it('percorre várias páginas da lista de membros', async () => {
+    for (let i = 0; i < 1005; i++) joined(String(10_000 + i), 24 * 30, ['8300']);
+    joined('20000', 1);
+    const run = await catchUpMissedJoins(client);
+    expect(run.checked).toBe(1006);
+    expect(run.onboarded).toEqual(['20000']);
+    expect(mock.callsTo('GET', new RegExp(`^/guilds/${GUILD_ID}/members$`))).toHaveLength(2);
   });
 });
 

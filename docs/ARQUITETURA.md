@@ -64,7 +64,8 @@ src/
 │   └── status.ts        estado do worker (conectado, desde quando caiu, reconexões)
 │
 ├── config.ts        Variáveis de ambiente e constantes
-└── index.ts         Ponto de entrada: sobe o worker, sinais (SIGTERM/SIGINT) e erros globais
+├── index.ts         Ponto de entrada: confere a versão do Node (22.12+) e carrega app.ts
+└── app.ts           Sobe o worker, sinais (SIGTERM/SIGINT) e erros globais
 ```
 
 ## Princípios
@@ -82,7 +83,7 @@ src/
     - logger.
       Isso permite testá-los sem rede e sem Fluxer.
   - Só `services/notifications/` e `events/` falam com o Fluxer.
-- **Erros de regra são `UserError`.** `events/messageCreate.ts` responde a mensagem ao usuário. Outros erros vão para o log (Winston) e o usuário recebe uma mensagem genérica. `index.ts` também registra `unhandledRejection` e `uncaughtException`.
+- **Erros de regra são `UserError`.** `events/messageCreate.ts` responde a mensagem ao usuário. Outros erros vão para o log (Winston) e o usuário recebe uma mensagem genérica. `app.ts` também registra `unhandledRejection` e `uncaughtException`.
 - **Rajadas de eventos são enfileiradas.** No SQLite, muitas escritas simultâneas (ex.: todos reagindo ao Night Fluxer) estouram o tempo de espera do banco. Reações, progresso de missões e entradas/saídas das salas temporárias passam por filas próprias (`utils/queue.ts`), uma tarefa por vez. São filas separadas para uma não esperar a outra (uma reação ✅ que confirma partida gera progresso de missão).
 - **Operações que mexem em várias tabelas usam transação** (`transaction()` em `database/client.ts`). Confirmar uma partida atualiza estatísticas, moedas, conquistas e a chave de uma vez.
 - **Ações automáticas são idempotentes e seguras.** Um evento repetido do Gateway não gera outra entrada, cargo ou mensagem: as escritas são condicionais no banco (`CommunityMember` único por comunidade+usuário; boas-vindas e promoção "reservadas" com `updateMany ... where null`). Cargos automáticos nunca têm permissão de administração ou moderação (`rules/onboarding.ts`).

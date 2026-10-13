@@ -18,7 +18,7 @@ import { updateScoreboard } from '../services/notifications/announcer.js';
 import { updateHallOfFame } from '../services/notifications/hallAnnouncer.js';
 import { trackVoice } from '../services/notifications/missionTracker.js';
 import { trackRooms } from '../services/notifications/voiceRooms.js';
-import { onMemberAdd } from '../services/notifications/onboarding.js';
+import { catchUpMissedJoins, onMemberAdd } from '../services/notifications/onboarding.js';
 import { seedDefaultGames } from '../services/games.js';
 import { getActiveSeason } from '../services/seasons.js';
 import { ensureDailyMissions } from '../services/missions.js';
@@ -48,6 +48,8 @@ export interface WorkerOptions {
   gatewayGraceMs: number;
   /** Liga os agendadores (os testes desligam). */
   schedulers?: boolean;
+  /** Recupera entradas perdidas a cada READY (padrão: sim). */
+  catchUpJoins?: boolean;
   /** Erro sem volta (token inválido, watchdog): o processo deve sair para ser reiniciado. */
   onFatal: (reason: string) => void;
   /** Tentativas da inicialização (descoberta do Fluxer, banco). */
@@ -102,6 +104,10 @@ export async function startWorker(opts: WorkerOptions): Promise<Worker> {
   client.gateway.on('ready', (user) => {
     status.gatewayUp();
     log.info(`conectado ao Fluxer como ${user.username} (${user.id})`);
+    // Sessão nova (início ou depois de perder a sessão): GUILD_MEMBER_ADD do período fora pode ter se perdido.
+    if (!stopping && opts.catchUpJoins !== false) {
+      void catchUpMissedJoins(client).catch((err: unknown) => log.error('falha ao recuperar entradas perdidas', errorMeta(err)));
+    }
     // Um novo Identify (após perder a sessão) dispara READY de novo; o resto só roda uma vez.
     if (started || stopping) return;
     started = true;

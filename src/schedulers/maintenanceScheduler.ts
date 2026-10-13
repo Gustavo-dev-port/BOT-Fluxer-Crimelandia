@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
 import type { FluxerClient } from '../fluxer/client.js';
+import { FluxerApiError } from '../fluxer/rest.js';
 import { prisma } from '../database/client.js';
 import { expireStaleChallenges } from '../services/matches.js';
 import { endActiveSeason, isSeasonOver } from '../services/seasons.js';
@@ -27,13 +28,35 @@ function safe(name: string, fn: () => Promise<unknown>) {
   };
 }
 
-async function removeExpiredRoles(client: FluxerClient) {
-  const expired = await prisma.tempRole.findMany({ where: { expiresAt: { lte: new Date() } } });
+/**
+ * Executa a ação no Fluxer; true se deu certo ou se o alvo já não existe (404: cargo
+ * apagado, membro saiu). Outras falhas devolvem false para tentar de novo na próxima rodada.
+ */
+async function appliedOrGone(action: () => Promise<unknown>, what: string, meta: Record<string, unknown>): Promise<boolean> {
+  try {
+    await action();
+    return true;
+  } catch (err) {
+    if (err instanceof FluxerApiError && err.status === 404) return true;
+    log.warn(`${what}; tento de novo em 5 min`, { ...meta, ...errorMeta(err) });
+    return false;
+  }
+}
+
+/** Tira os cargos/cores da loja que venceram. O registro só sai quando o Fluxer confirmou. */
+export async function removeExpiredRoles(client: FluxerClient, now = new Date()) {
+  const expired = await prisma.tempRole.findMany({ where: { expiresAt: { lte: now } } });
   for (const t of expired) {
     const reason = 'Item da loja expirou';
-    if (t.deleteRole) await client.rest.deleteRole(client.guildId, t.roleId, reason).catch(() => undefined);
-    else await client.rest.removeMemberRole(client.guildId, t.playerId, t.roleId, reason).catch(() => undefined);
-    await prisma.tempRole.delete({ where: { id: t.id } });
+    const done = await appliedOrGone(
+      () =>
+        t.deleteRole
+          ? client.rest.deleteRole(client.guildId, t.roleId, reason)
+          : client.rest.removeMemberRole(client.guildId, t.playerId, t.roleId, reason),
+      'falha ao remover item vencido',
+      { user: t.playerId, role: t.roleId },
+    );
+    if (done) await prisma.tempRole.delete({ where: { id: t.id } });
   }
 }
 
@@ -41,10 +64,12 @@ async function removeExpiredRoles(client: FluxerClient) {
 export async function restoreExpiredNicknames(client: FluxerClient, now = new Date()) {
   const expired = await prisma.tempNickname.findMany({ where: { expiresAt: { lte: now } } });
   for (const t of expired) {
-    await client.rest
-      .modifyMember(client.guildId, t.playerId, { nick: t.previousNick }, 'Apelido especial expirou')
-      .catch((err: unknown) => log.warn('falha ao devolver apelido', { user: t.playerId, ...errorMeta(err) }));
-    await prisma.tempNickname.delete({ where: { playerId: t.playerId } });
+    const done = await appliedOrGone(
+      () => client.rest.modifyMember(client.guildId, t.playerId, { nick: t.previousNick }, 'Apelido especial expirou'),
+      'falha ao devolver apelido',
+      { user: t.playerId },
+    );
+    if (done) await prisma.tempNickname.delete({ where: { playerId: t.playerId } });
   }
 }
 
