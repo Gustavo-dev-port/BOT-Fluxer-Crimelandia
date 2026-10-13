@@ -1,0 +1,67 @@
+# Roda em cada PR e em cada push na main: o mesmo que `npm run check`, os testes
+# no PostgreSQL, o build e a imagem Docker de produção (sem publicar nada).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, testes (SQLite) e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm audit --omit=dev
+
+  postgres:
+    name: Testes (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fluxer
+          POSTGRES_PASSWORD: fluxer
+          POSTGRES_DB: fluxer_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U fluxer -d fluxer_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:postgres
+        env:
+          TEST_DATABASE_URL: postgresql://fluxer:fluxer@localhost:5432/fluxer_test
+
+  docker:
+    name: Imagem Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # O compose lê o .env; aqui vale o exemplo (sem segredos).
+      - run: cp .env.example .env && docker compose config -q
+      - run: docker build -t fluxer-bot:ci .

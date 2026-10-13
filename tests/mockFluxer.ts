@@ -37,12 +37,16 @@ export class MockFluxer {
   private nextMessageId = 10_000;
   /** Respostas 429 a devolver antes de atender (teste de rate limit). */
   rateLimitNext = 0;
+  /** Respostas 500 a devolver antes de atender (Fluxer instável). */
+  serverErrorNext = 0;
   roles: any[] = [{ id: GUILD_ID, name: '@everyone', color: 0, position: 0, permissions: '0', hoist: false, mentionable: false }];
   memberRoles = new Map<string, string[]>();
   /** Total de membros anunciado no GUILD_CREATE. */
   memberCount = 42;
   /** Recusa (404 UNKNOWN_ROLE) dar um cargo que não está em `roles`, como o Fluxer de verdade. */
   strictRoles = false;
+  /** Membros listados em GET /guilds/{id}/members (os cargos vêm de memberRoles). */
+  guildMembers = new Map<string, { id: string; username: string; bot?: boolean }>();
   /** joined_at devolvido no GET do membro (padrão: agora). */
   memberJoinedAt = new Map<string, string>();
   /** Usuários que não aceitam DM (Create message responde 400). */
@@ -179,6 +183,10 @@ export class MockFluxer {
     this.calls.push(call);
 
     if (req.headers.authorization !== `Bot ${TOKEN}`) return json(401, { code: 'UNAUTHORIZED', message: 'no' });
+    if (this.serverErrorNext > 0) {
+      this.serverErrorNext--;
+      return json(500, { code: 'INTERNAL_SERVER_ERROR', message: 'boom' });
+    }
     if (this.rateLimitNext > 0) {
       this.rateLimitNext--;
       return json(429, { code: 'RATE_LIMITED', message: 'slow down', global: false, retry_after: 0.01 });
@@ -246,6 +254,23 @@ export class MockFluxer {
       return json(
         200,
         Object.entries(CHANNELS).map(([name, id]) => ({ id, name, type: 0, guild_id: GUILD_ID })),
+      );
+    }
+    if (req.method === 'GET' && path === `/guilds/${GUILD_ID}/members`) {
+      const limit = Number(url.searchParams.get('limit') ?? 1);
+      const after = url.searchParams.get('after');
+      const page = [...this.guildMembers.values()]
+        .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
+        .filter((u) => !after || BigInt(u.id) > BigInt(after))
+        .slice(0, limit);
+      return json(
+        200,
+        page.map((u) => ({
+          user: { ...u, global_name: null, discriminator: '0000', avatar: null },
+          roles: this.memberRoles.get(u.id) ?? [],
+          nick: null,
+          joined_at: this.memberJoinedAt.get(u.id) ?? new Date().toISOString(),
+        })),
       );
     }
     if ((m = new RegExp(`^/guilds/${GUILD_ID}/members/([^/]+)$`).exec(path))) {

@@ -148,58 +148,121 @@ async function sendWelcome(client: FluxerClient, settings: GuildSettings, member
 }
 
 /** GUILD_MEMBER_ADD: cargo inicial + boas-vindas, uma vez por membro. */
-export function onMemberAdd(client: FluxerClient, event: GuildMemberAddEvent): Promise<OnboardingResult> {
+export function onMemberAdd(client: FluxerClient, event: GuildMemberAddEvent, opts: OnboardOptions = {}): Promise<OnboardingResult> {
   if (event.guild_id !== client.guildId) return Promise.resolve({ status: 'ignored', reason: 'other_guild' });
   const user = event.user;
   if (!user) return Promise.resolve({ status: 'ignored', reason: 'no_user' });
   if (user.bot) return Promise.resolve({ status: 'ignored', reason: 'bot' });
-  return memberQueue(() => onboard(client, event, user));
+  return memberQueue(() => onboard(client, event, user, opts));
 }
 
-async function onboard(client: FluxerClient, event: GuildMemberAddEvent, user: User): Promise<OnboardingResult> {
+interface OnboardOptions {
+  /** Recuperação de quem entrou com o bot fora do ar (sem GUILD_MEMBER_ADD). */
+  catchUp?: boolean;
+  /** false = só o cargo, sem boas-vindas (entrada antiga demais para dar "bem-vindo"). */
+  welcome?: boolean;
+}
+
+/** Dá o cargo inicial seguro e registra; falha do Fluxer vira role_missing no histórico. */
+async function assignStartingRole(
+  client: FluxerClient,
+  settings: GuildSettings,
+  memberId: number,
+  user: User,
+  currentRoles: string[],
+  details: Record<string, unknown>,
+): Promise<{ roleId: string | null; roleName: string }> {
+  const guildId = client.guildId;
+  try {
+    const resolved = await resolveAutomaticRole(client, 'start', settings, true);
+    if (!resolved) return { roleId: null, roleName: SYSTEM_DEFAULT_ROLE_NAME };
+    if (!currentRoles.includes(resolved.role.id)) {
+      await client.rest.addMemberRole(guildId, user.id, resolved.role.id, 'Cargo inicial automatico (onboarding)');
+    }
+    await recordInitialRole(memberId, resolved.role.id);
+    await audit({
+      guildId,
+      action: 'role_assigned',
+      userId: user.id,
+      roleId: resolved.role.id,
+      details: { source: resolved.source, ...details },
+    });
+    log.info(`cargo inicial: ${resolved.role.name}`, { user: user.id, role: resolved.role.id, source: resolved.source, ...details });
+    return { roleId: resolved.role.id, roleName: resolved.role.name };
+  } catch (err) {
+    log.error('falha ao dar o cargo inicial', { user: user.id, ...errorMeta(err) });
+    await audit({ guildId, action: 'role_missing', userId: user.id, details: { error: err instanceof Error ? err.message : String(err) } });
+    return { roleId: null, roleName: SYSTEM_DEFAULT_ROLE_NAME };
+  }
+}
+
+async function onboard(client: FluxerClient, event: GuildMemberAddEvent, user: User, opts: OnboardOptions): Promise<OnboardingResult> {
   const guildId = client.guildId;
   const joined = event.joined_at ? new Date(event.joined_at) : null;
   const joinedAt = joined && !Number.isNaN(joined.getTime()) ? joined : null;
   const { kind, member } = await registerJoin(guildId, user.id, user.username, joinedAt);
+  const catchUp = opts.catchUp === true;
   if (kind === 'duplicate') {
-    log.info('entrada repetida ignorada', { user: user.id });
+    // Já registrado, mas ainda sem nenhum cargo (ex.: o Fluxer recusou da outra vez): só o cargo.
+    if (catchUp && event.roles.length === 0) {
+      const settings = await guildSettings.get(guildId);
+      const { roleId } = await assignStartingRole(client, settings, member.id, user, event.roles, { catchUp });
+      return { status: 'duplicate', roleId, welcomed: false };
+    }
+    if (!catchUp) log.info('entrada repetida ignorada', { user: user.id });
     return { status: 'duplicate', roleId: member.initialRoleId, welcomed: false };
   }
-  log.info(kind === 'first' ? 'novo membro' : 'membro voltou', { user: user.id, username: user.username });
-  await audit({ guildId, action: kind === 'first' ? 'member_join' : 'member_rejoin', userId: user.id, details: { joinedAt } });
+  log.info(kind === 'first' ? 'novo membro' : 'membro voltou', { user: user.id, username: user.username, catchUp });
+  await audit({ guildId, action: kind === 'first' ? 'member_join' : 'member_rejoin', userId: user.id, details: { joinedAt, catchUp } });
 
   const settings = await guildSettings.get(guildId);
-  let roleId: string | null = null;
-  let roleName = SYSTEM_DEFAULT_ROLE_NAME;
-  try {
-    const resolved = await resolveAutomaticRole(client, 'start', settings, true);
-    if (resolved) {
-      roleName = resolved.role.name;
-      if (!event.roles.includes(resolved.role.id)) {
-        await client.rest.addMemberRole(guildId, user.id, resolved.role.id, 'Cargo inicial automatico (onboarding)');
-      }
-      roleId = resolved.role.id;
-      await recordInitialRole(member.id, roleId);
-      await audit({
-        guildId,
-        action: 'role_assigned',
-        userId: user.id,
-        roleId,
-        details: { source: resolved.source, rejoin: kind === 'rejoin' },
-      });
-      log.info(`cargo inicial: ${resolved.role.name}`, { user: user.id, role: roleId, source: resolved.source });
-    }
-  } catch (err) {
-    log.error('falha ao dar o cargo inicial', { user: user.id, ...errorMeta(err) });
-    await audit({ guildId, action: 'role_missing', userId: user.id, details: { error: err instanceof Error ? err.message : String(err) } });
-  }
+  const { roleId, roleName } = await assignStartingRole(client, settings, member.id, user, event.roles, {
+    rejoin: kind === 'rejoin',
+    ...(catchUp ? { catchUp } : {}),
+  });
 
   let welcomed = false;
-  if (kind === 'first' && settings.welcomeEnabled && (await claimWelcome(member.id))) {
+  if (kind === 'first' && opts.welcome !== false && settings.welcomeEnabled && (await claimWelcome(member.id))) {
     await sendWelcome(client, settings, member.id, event, roleName);
     welcomed = true;
   }
   return { status: kind, roleId, welcomed };
+}
+
+/** Quem entrou com o bot fora do ar é recuperado se entrou há até isto. */
+export const CATCH_UP_WINDOW_MS = 7 * 86_400_000;
+/** Boas-vindas atrasadas só para quem entrou há até isto (mais que isso, só o cargo). */
+export const CATCH_UP_WELCOME_MS = 86_400_000;
+const MEMBER_PAGE = 1000;
+const MAX_MEMBER_PAGES = 100;
+
+/**
+ * Recupera entradas perdidas: o GUILD_MEMBER_ADD não chega enquanto o bot está
+ * desligado (nem depois de uma sessão nova, sem Resume). Percorre os membros e dá o
+ * cargo inicial a quem entrou nos últimos 7 dias e está sem nenhum cargo; quem entrou
+ * nas últimas 24 h também recebe as boas-vindas. Tudo idempotente, como no evento.
+ */
+export async function catchUpMissedJoins(client: FluxerClient, now = new Date()): Promise<{ checked: number; onboarded: string[] }> {
+  const onboarded: string[] = [];
+  let checked = 0;
+  let after: string | undefined;
+  for (let page = 0; page < MAX_MEMBER_PAGES; page++) {
+    const members = await client.rest.listMembers(client.guildId, MEMBER_PAGE, after);
+    for (const m of members) {
+      checked++;
+      if (!m.user || m.user.bot || m.roles.length > 0) continue;
+      // Relógios diferentes (Fluxer x servidor do bot): uma entrada "no futuro" conta como agora.
+      const age = Math.max(0, now.getTime() - new Date(m.joined_at).getTime());
+      if (!(age <= CATCH_UP_WINDOW_MS)) continue;
+      const result = await onMemberAdd(client, { ...m, guild_id: client.guildId }, { catchUp: true, welcome: age <= CATCH_UP_WELCOME_MS });
+      if (result.status !== 'ignored' && result.roleId) onboarded.push(m.user.id);
+    }
+    if (members.length < MEMBER_PAGE) break;
+    after = members.at(-1)?.user?.id;
+    if (!after) break;
+  }
+  if (onboarded.length) log.info(`${onboarded.length} entrada(s) perdida(s) recuperada(s)`, { users: onboarded });
+  return { checked, onboarded };
 }
 
 // ─── Promoção Escudeiro → Mercenário ─────────────────────────────────────────

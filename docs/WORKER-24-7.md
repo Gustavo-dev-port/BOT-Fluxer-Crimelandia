@@ -29,7 +29,14 @@ Implementação incremental sobre o bot existente. Tudo fala com o Fluxer pela A
 6. **Boas-vindas** só na primeira entrada (quem sai e volta recebe o cargo de novo, mas não outra mensagem):
    - vão para o canal configurado e, se ativado, também por DM;
    - só o novo membro é mencionado: um `@everyone` no texto ou no nome não notifica ninguém.
-7. Tudo vai para o histórico (`AuditLog`, visível com `!auditoria`). O Fluxer também recebe o motivo no cabeçalho `X-Audit-Log-Reason`.
+7. **Entradas perdidas:** enquanto o bot está desligado (ou depois de perder a sessão do Gateway), o `GUILD_MEMBER_ADD` não chega. A cada `READY` (no início e depois de uma sessão nova), o worker percorre os membros (`GET /guilds/{id}/members`) e trata quem entrou nos **últimos 7 dias** e está **sem nenhum cargo**:
+   - dá o cargo inicial;
+   - manda as boas-vindas só para quem entrou nas últimas 24 h;
+   - não mexe em membros antigos nem em quem já tem algum cargo.
+
+   É idempotente como o evento. Um efeito: se um admin tirar todos os cargos de um membro que entrou nessa semana, o Escudeiro volta no próximo `READY`.
+
+8. Tudo vai para o histórico (`AuditLog`, visível com `!auditoria`). O Fluxer também recebe o motivo no cabeçalho `X-Audit-Log-Reason`.
 
 Ações registradas no histórico:
 
@@ -258,23 +265,23 @@ O PM2 reinicia o worker quando ele sai (watchdog, erro fatal) e no boot.
 
 ### Modificados
 
-| Arquivo                                                                                      | Mudança                                                             |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `src/index.ts`                                                                               | Só sobe o worker e cuida de sinais e erros globais                  |
-| `src/fluxer/client.ts`                                                                       | Nome da comunidade, total de membros, `invalidateRoles()`           |
-| `src/fluxer/rest.ts`                                                                         | `createDM`, retry com backoff em falha de rede, 502 e 504           |
-| `src/fluxer/types.ts`                                                                        | `GuildMemberAddEvent`, `member_count`                               |
-| `src/config.ts`                                                                              | Bloco `worker` e canal `boas-vindas`                                |
-| `src/schedulers/*`                                                                           | Devolvem as tarefas para o desligamento; job da progressão (15 min) |
-| `src/services/notifications/missionTracker.ts`                                               | Soma os pontos de atividade                                         |
-| `src/utils/queue.ts`                                                                         | `memberQueue` e `drainQueues()`                                     |
-| `src/utils/logger.ts`                                                                        | `onboarding.log`, `worker.log`, `LOG_FORMAT=json`                   |
-| `src/commands/admin.ts`                                                                      | `!setup` cria `#👋┃boas-vindas`, Escudeiro e Mercenário             |
-| `src/commands/config.ts`, `src/commands/index.ts`, `src/database/guildSettingsRepository.ts` | Canal `boas-vindas` e registro dos comandos                         |
-| `prisma/schema.prisma`, `prisma/postgres/schema.prisma`                                      | Models (abaixo)                                                     |
-| `Dockerfile`, `docker-compose.yml`, `.env.example`                                           | Docker 24/7 e variáveis novas                                       |
-| `tests/mockFluxer.ts`, `tests/helpers.ts`                                                    | Fluxer falso com DM, cargos por membro, `member_count`              |
-| `README.md`, `docs/ARQUITETURA.md`                                                           | Documentação                                                        |
+| Arquivo                                                                                      | Mudança                                                                                    |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `src/index.ts`, `src/app.ts`                                                                 | `index.ts` confere o Node 22.12+; `app.ts` sobe o worker e cuida de sinais e erros globais |
+| `src/fluxer/client.ts`                                                                       | Nome da comunidade, total de membros, `invalidateRoles()`                                  |
+| `src/fluxer/rest.ts`                                                                         | `createDM`, retry com backoff em falha de rede, 502 e 504                                  |
+| `src/fluxer/types.ts`                                                                        | `GuildMemberAddEvent`, `member_count`                                                      |
+| `src/config.ts`                                                                              | Bloco `worker` e canal `boas-vindas`                                                       |
+| `src/schedulers/*`                                                                           | Devolvem as tarefas para o desligamento; job da progressão (15 min)                        |
+| `src/services/notifications/missionTracker.ts`                                               | Soma os pontos de atividade                                                                |
+| `src/utils/queue.ts`                                                                         | `memberQueue` e `drainQueues()`                                                            |
+| `src/utils/logger.ts`                                                                        | `onboarding.log`, `worker.log`, `LOG_FORMAT=json`                                          |
+| `src/commands/admin.ts`                                                                      | `!setup` cria `#👋┃boas-vindas`, Escudeiro e Mercenário                                    |
+| `src/commands/config.ts`, `src/commands/index.ts`, `src/database/guildSettingsRepository.ts` | Canal `boas-vindas` e registro dos comandos                                                |
+| `prisma/schema.prisma`, `prisma/postgres/schema.prisma`                                      | Models (abaixo)                                                                            |
+| `Dockerfile`, `docker-compose.yml`, `.env.example`                                           | Docker 24/7 e variáveis novas                                                              |
+| `tests/mockFluxer.ts`, `tests/helpers.ts`                                                    | Fluxer falso com DM, cargos por membro, `member_count`                                     |
+| `README.md`, `docs/ARQUITETURA.md`                                                           | Documentação                                                                               |
 
 ## Models e migrations
 

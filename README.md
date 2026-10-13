@@ -28,17 +28,17 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 
 ## Stack
 
-| Tecnologia              | Uso                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Node.js 22 + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                                                                  |
-| API do Fluxer           | HTTP API + Gateway, cliente próprio em `src/fluxer/`                                                               |
-| SQLite / PostgreSQL     | SQLite no desenvolvimento, PostgreSQL em produção (Docker)                                                         |
-| Prisma 7                | ORM e migrações                                                                                                    |
-| node-cron               | Temporadas, expirações e evento semanal                                                                            |
-| Vitest                  | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta)                                              |
-| Winston                 | Logs no console, em `logs/error.log` / `logs/combined.log` e por módulo (`missions.log`, `voice.log`, `night.log`) |
-| ESLint + Prettier       | Qualidade e formatação do código                                                                                   |
-| Docker                  | Hospedagem (bot + PostgreSQL)                                                                                      |
+| Tecnologia                  | Uso                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Node.js 22.12+ + TypeScript | Linguagem (usa o `WebSocket` e o `fetch` nativos)                                                                  |
+| API do Fluxer               | HTTP API + Gateway, cliente próprio em `src/fluxer/`                                                               |
+| SQLite / PostgreSQL         | SQLite no desenvolvimento, PostgreSQL em produção (Docker)                                                         |
+| Prisma 7                    | ORM e migrações                                                                                                    |
+| node-cron                   | Temporadas, expirações e evento semanal                                                                            |
+| Vitest                      | Testes (incluindo um servidor Fluxer falso para testes ponta a ponta)                                              |
+| Winston                     | Logs no console, em `logs/error.log` / `logs/combined.log` e por módulo (`missions.log`, `voice.log`, `night.log`) |
+| ESLint + Prettier           | Qualidade e formatação do código                                                                                   |
+| Docker                      | Hospedagem (bot + PostgreSQL)                                                                                      |
 
 ## Instalação
 
@@ -53,6 +53,8 @@ Feito direto sobre a API oficial do Fluxer ([docs.fluxer.app](https://docs.fluxe
 Se você usa uma instância própria do Fluxer, aponte `FLUXER_INSTANCE` para ela — o bot lê os endpoints de `/.well-known/fluxer`.
 
 ### 2. Rodar localmente
+
+Precisa do **Node.js 22.12 ou mais novo** ([nodejs.org](https://nodejs.org), versão LTS). Confira com `node -v`; com uma versão mais antiga, o bot avisa e não sobe.
 
 ```bash
 cp .env.example .env         # preencha FLUXER_TOKEN e FLUXER_GUILD_ID
@@ -431,5 +433,11 @@ npm run db:studio      # navegar no banco
 ```
 
 Logs: `logs/combined.log` (tudo) e `logs/error.log` (só erros), em JSON. Ajuste o nível com `LOG_LEVEL`.
+
+**CI:** cada PR e cada push na `main` rodam no GitHub Actions (`.github/workflows/ci.yml`):
+
+- `npm run check`, build e `npm audit` das dependências de produção;
+- a suíte inteira num PostgreSQL 16;
+- o `docker build` da imagem de produção.
 
 Veja [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) para a estrutura do código e como estender (novos jogos, itens, conquistas, comandos).

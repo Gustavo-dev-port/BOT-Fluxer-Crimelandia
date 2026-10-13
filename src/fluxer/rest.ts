@@ -168,6 +168,10 @@ export class RestClient {
   getMember(guildId: Snowflake, userId: Snowflake) {
     return this.request<GuildMember>('GET', `/guilds/${guildId}/members/${userId}`);
   }
+  /** docs: GET /guilds/{guild_id}/members — página em ordem crescente de ID (limit 1–1000, after exclusivo). */
+  listMembers(guildId: Snowflake, limit = 1000, after?: Snowflake) {
+    return this.request<GuildMember[]>('GET', `/guilds/${guildId}/members`, { query: { limit, after } });
+  }
   getCurrentMember(guildId: Snowflake) {
     return this.request<GuildMember>('GET', `/guilds/${guildId}/members/@me`);
   }
